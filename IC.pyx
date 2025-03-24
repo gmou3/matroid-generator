@@ -47,21 +47,8 @@ def IC(n, r):
         yield M
         return
 
-    subsets = [frozenset(S)
-               for S in sorted(combinations(range(n), r), key=revlex_sort_key)]
     R = sorted([x for x in combinations(range(n - 1), r) if n - 2 in x],
                key=revlex_sort_key)
-
-    global set_to_num
-    set_to_num = {S: i for i, S in enumerate(subsets)}
-
-    global fctrl, bnml
-    fctrl = factorial(n)
-    bnml = binomial(n, r)
-
-    for i, p in enumerate(permutations(range(n))):
-        for j, S in enumerate(subsets):
-            P[i][j] = set_to_num[frozenset([p[k] for k in S])]
 
     def get_taboo_flats(M):
         # Prop. 1
@@ -81,7 +68,24 @@ def IC(n, r):
 
         return taboo_flats
 
-    for M in IC(n - 1, r):
+    IC_prev_1 = list(IC(n - 1, r))
+    IC_prev_2 = list(IC(n - 1, r - 1))
+
+    subsets = [frozenset(S)
+               for S in sorted(combinations(range(n), r), key=revlex_sort_key)]
+
+    global set_to_num
+    set_to_num = {S: i for i, S in enumerate(subsets)}
+
+    global fctrl, bnml
+    fctrl = factorial(n)
+    bnml = binomial(n, r)
+
+    for i, p in enumerate(permutations(range(n))):
+        for j, S in enumerate(subsets):
+            P[i][j] = set_to_num[frozenset([p[k] for k in S])]
+
+    for M in IC_prev_1:  # IC(n - 1, r)
         taboo_flats = get_taboo_flats(M)
         # For all nonempty modular cuts
         for LS in M.linear_subclasses():
@@ -95,7 +99,7 @@ def IC(n, r):
             N = M._extension(n - 1, LS)
             if is_canonical(N):
                 yield N
-    for M in IC(n - 1, r - 1):
+    for M in IC_prev_2:  # IC(n - 1, r - 1)
         yield Matroid(groundset=list(range(n)),
                       bases=[S | set([n - 1]) for S in M.bases()])
 

@@ -24,6 +24,7 @@ Within the Sage interactive shell run
 sage: from IC import *
 sage: for M in IC(n=5, r=2):
 ....:     print(revlex_of(M))
+....:
 **********
 0*********
 0****0****
@@ -37,6 +38,11 @@ sage: for M in IC(n=5, r=2):
 0000000***
 00000000**
 000000000*
+```
+
+For a timed and enumerated output, run, e.g.,
+```python
+sage: %time for i, M in enumerate(IC(8, 4)): print(f'#{str(i + 1).center(7)} | {revlex_of(M)}')
 ```
 
 ## References
