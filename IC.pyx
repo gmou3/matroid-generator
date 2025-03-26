@@ -1,12 +1,14 @@
-from sage.all import *
+from cpython.mem cimport PyMem_Realloc
 from itertools import combinations, permutations
+from sage.all import *
 cimport cython
 
 
-cdef unsigned char P[3628800][210]
-cdef unsigned int ii, j, fctrl, bnml
+cdef long long int ii, j, fctrl, bnml
+cdef unsigned char *P
+cdef bint *B
+cdef frozenset S
 set_to_num = {}
-cdef bint B[210]
 
 
 def revlex_sort_key(s):
@@ -14,7 +16,7 @@ def revlex_sort_key(s):
 
 
 def revlex_of(M):
-    global ii
+    global ii, S
     for ii in range(bnml):
         B[ii] = False
     for S in M.bases():
@@ -23,14 +25,14 @@ def revlex_of(M):
 
 
 cdef bint is_canonical(M):
-    global ii, j
+    global ii, j, S
     for ii in range(bnml):
         B[ii] = False
     for S in M.bases():
         B[set_to_num[S]] = True
     for ii in range(1, fctrl):
         for j in range(bnml):
-            if B[P[ii][j]] != B[j]:
+            if B[P[ii * bnml + j]] != B[j]:
                 if B[j]:
                     return False
                 break
@@ -71,19 +73,27 @@ def IC(n, r):
     IC_prev_1 = list(IC(n - 1, r))
     IC_prev_2 = list(IC(n - 1, r - 1))
 
-    subsets = [frozenset(S)
-               for S in sorted(combinations(range(n), r), key=revlex_sort_key)]
-
-    global set_to_num
-    set_to_num = {S: i for i, S in enumerate(subsets)}
-
     global fctrl, bnml
     fctrl = factorial(n)
     bnml = binomial(n, r)
 
-    for i, p in enumerate(permutations(range(n))):
+    global P, B
+    P = <unsigned char *>PyMem_Realloc(P, fctrl * bnml * sizeof(unsigned char))
+    if not P:
+        raise MemoryError()
+    B = <bint *>PyMem_Realloc(B, bnml * sizeof(bint))
+    if not B:
+        raise MemoryError()
+
+    subsets = [frozenset(SS)
+               for SS in sorted(combinations(range(n), r), key=revlex_sort_key)]
+
+    global ii, j, S, set_to_num
+    set_to_num = {S: ii for ii, S in enumerate(subsets)}
+
+    for ii, p in enumerate(permutations(range(n))):
         for j, S in enumerate(subsets):
-            P[i][j] = set_to_num[frozenset([p[k] for k in S])]
+            P[ii * bnml + j] = set_to_num[frozenset([p[k] for k in S])]
 
     for M in IC_prev_1:  # IC(n - 1, r)
         taboo_flats = get_taboo_flats(M)
