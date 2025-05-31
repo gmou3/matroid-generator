@@ -218,7 +218,7 @@ int main(int argc, char* argv[]) {
 
     int n = stoi(argv[1]);
     int r = stoi(argv[2]);
-    int num_threads = omp_get_max_threads();
+    int num_threads = 1;  // omp_get_max_threads();
     if (argc == 4) {
         num_threads = stoi(argv[3]);
     }
