@@ -1,4 +1,7 @@
+#include "combinatorics.h"
 #include "extension.h"
+
+using namespace std;
 
 Node::Node(const Matroid* M) : M(M) {
     p_free.reset();
@@ -20,11 +23,11 @@ Node::Node(const Node& other)
       l1(other.l1),
       M(other.M) {}
 
-bool Node::insert_plane(const int& p0) {
-    p_free.reset(p0);
-    p_in.set(p0);
+bool Node::insert_plane(const int& p) {
+    p_free.reset(p);
+    p_in.set(p);
 
-    vector<int> p_stack = {p0};
+    vector<int> p_stack = {p};
     vector<int> l_stack;
 
     while (!p_stack.empty()) {
@@ -49,13 +52,13 @@ bool Node::insert_plane(const int& p0) {
             int l = l_stack.back();
             l_stack.pop_back();
 
-            for (int p : M->lines_to_planes[l]) {
-                if (p_in[p]) continue;
+            for (int pl : M->lines_to_planes[l]) {
+                if (p_in[pl]) continue;
 
-                if (p_free[p]) {
-                    p_free.reset(p);
-                    p_in.set(p);
-                    p_stack.push_back(p);
+                if (p_free[pl]) {
+                    p_free.reset(pl);
+                    p_in.set(pl);
+                    p_stack.push_back(pl);
                 } else {
                     return false;  // forbidden
                 }
@@ -65,9 +68,7 @@ bool Node::insert_plane(const int& p0) {
     return true;
 }
 
-void Node::remove_plane(const int& p0) {
-    p_free.reset(p0);
-}
+void Node::remove_plane(const int& p) { p_free.reset(p); }
 
 int Node::select_plane() {
     // Find first free plane
@@ -83,6 +84,26 @@ vector<int> Node::planes() const {
         if (p_in[i]) result.push_back(i);
     }
     return result;
+}
+
+void dfs_search(Node& node, vector<vector<int>>& linear_subclasses) {
+    int p = node.select_plane();
+
+    if (p < 0) {
+        // No more free planes - this is a complete linear subclass
+        linear_subclasses.push_back(node.planes());
+        return;
+    }
+
+    // Try including plane p
+    Node include_node(node);
+    if (include_node.insert_plane(p)) {
+        dfs_search(include_node, linear_subclasses);
+    }
+
+    // Try excluding plane p (continue with remaining planes)
+    node.remove_plane(p);
+    dfs_search(node, linear_subclasses);
 }
 
 vector<vector<int>> get_linear_subclasses(const Matroid& M,
@@ -102,30 +123,15 @@ vector<vector<int>> get_linear_subclasses(const Matroid& M,
     }
 
     vector<vector<int>> linear_subclasses;
-    vector<Node> nodes;
-    nodes.push_back(first_node);
 
-    while (!nodes.empty()) {
-        Node node(nodes.back());
-        nodes.pop_back();
-        int p0 = node.select_plane();
-        while (p0 >= 0) {
-            Node node2(node);
-            if (node2.insert_plane(p0)) {
-                nodes.push_back(node2);
-            }
-            node.remove_plane(p0);
-            p0 = node.select_plane();
-        }
-
-        linear_subclasses.push_back(node.planes());
-    }
+    // Start DFS from the initial node
+    dfs_search(first_node, linear_subclasses);
 
     return linear_subclasses;
 }
 
 Matroid extend_matroid_coloop(const Matroid& matroid) {
-    string revlex(bnml, '0');
+    string revlex(binomial(matroid.n + 1, matroid.r + 1), '0');
 
     for (const bitset<N>& old_basis : matroid.bases(true)) {
         bitset<N> new_basis = old_basis;
@@ -162,13 +168,12 @@ string extend_matroid_LS(const Matroid& matroid,
     }
 
     // Create extension result string of length C(n - 1, r - 1)
-    int total_combinations = binomial[matroid.n][matroid.r - 1];
-    string ext_res(total_combinations, '0');
+    string ext_res(bnml_prev, '0');
 
     // Mark appropriate positions with '*'
     for (bitset<N> t_set : target_sets) {
         t_set.set(matroid.n);
-        int index = set_to_num[t_set] - binomial[matroid.n][matroid.r];
+        int index = set_to_num[t_set] - bnml_n_minus_1;  // - C(n - 1, r)
         ext_res[index] = '*';
     }
 

@@ -1,57 +1,22 @@
 #include <omp.h>
 
-#include <algorithm>
 #include <iostream>
 #include <numeric>
 
+#include "combinatorics.h"
 #include "extension.h"
 #include "matroid.h"
 
-struct RevLexComparator {
-    bool operator()(const bitset<N>& a, const bitset<N>& b) const {
-        for (int i = N - 1; i >= 0; --i) {
-            if (a[i] != b[i]) {
-                return a[i] < b[i];
-            }
-        }
-        return false;
-    }
-};
+using namespace std;
 
-vector<bitset<N>> combinations(const vector<int>& items, int r) {
-    vector<bitset<N>> result;
-    vector<bool> selector(items.size());
-    fill(selector.end() - r, selector.end(), true);
-
-    do {
-        bitset<N> combination;
-        for (int i = 0; i < items.size(); ++i) {
-            if (selector[i]) {
-                combination.set(i);
-            }
-        }
-        result.push_back(combination);
-    } while (next_permutation(selector.begin(), selector.end()));
-
-    return result;
-}
-
-vector<vector<int>> permutations(const vector<int>& items) {
-    vector<vector<int>> result;
-    vector<int> perm = items;
-    sort(perm.begin(), perm.end());
-
-    do {
-        result.push_back(perm);
-    } while (next_permutation(perm.begin(), perm.end()));
-
-    return result;
-}
+size_t fctrl;
+size_t bnml;
+vector<unsigned char> P;
 
 // Check if matroid is canonical
-bool is_canonical(string& revlex) {
-    for (int i = 0; i < fctrl; ++i) {
-        for (int j = 0; j < bnml; ++j) {
+bool is_canonical(const string& revlex) {
+    for (size_t i = 0; i < fctrl; ++i) {
+        for (size_t j = 0; j < bnml; ++j) {
             if (revlex[P[i * bnml + j]] != revlex[j]) {
                 if (revlex[j] == '*') {
                     return false;
@@ -64,8 +29,18 @@ bool is_canonical(string& revlex) {
 }
 
 vector<Matroid> IC(int n, int r, bool top_level = false) {
+    if (r < 0 || n < r) {
+        throw runtime_error("Ensure that r >= 0 and n >= r");
+    }
+
+    if (top_level) {
+        P.resize(factorial(n) * binomial(n, r));
+        subsets.resize(binomial(n, r));
+        subsets_prev.resize(binomial(n - 1, r - 1));
+    }
+
     vector<Matroid> matroids;
-    if (r == 0) {
+    if (r == 0 || n == r) {
         matroids.push_back(Matroid(n, r, "*"));
         if (top_level) {
             cout << "*" << endl;
@@ -73,79 +48,55 @@ vector<Matroid> IC(int n, int r, bool top_level = false) {
         return matroids;
     }
 
-    if (n == r) {
-        if (r == 1)
-            matroids.push_back(Matroid(n, r, "*"));
-        else
-            matroids.push_back(Matroid(n, r, "*"));
-        if (top_level) {
-            cout << "*" << endl;
-        }
-        return matroids;
-    }
-
-    if (top_level) {
-        initialize_factorial(n);
-        initialize_binomial(n);
-    }
-
     // Recursive calls
     vector<Matroid> IC_prev_1 = IC(n - 1, r);
     vector<Matroid> IC_prev_2 = IC(n - 1, r - 1);
 
-    fctrl = factorial[n];
-    bnml = binomial[n][r];
+    fctrl = factorial(n);
+    bnml = binomial(n, r);
+    bnml_n_minus_1 = binomial(n - 1, r);
+    bnml_prev = binomial(n - 1, r - 1);
 
     vector<int> range_n(n);
     iota(range_n.begin(), range_n.end(), 0);
-    vector<bitset<N>> all_subsets_vec = combinations(range_n, r);
-    sort(all_subsets_vec.begin(), all_subsets_vec.end(), RevLexComparator());
-    subsets.clear();
+    vector<bitset<N>> subsets_vec = combinations<N>(range_n, r);
+    sort(subsets_vec.begin(), subsets_vec.end(), RevLexComparator<N>());
     set_to_num.clear();
-    for (int i = 0; i < all_subsets_vec.size(); ++i) {
-        bitset<N> s = all_subsets_vec[i];
-        subsets.push_back(s);
+    for (int i = 0; i < subsets_vec.size(); ++i) {
+        bitset<N> s = subsets_vec[i];
+        subsets[i] = s;
         set_to_num[s] = i;
     }
     vector<int> range_n_minus_1(n - 1);
     iota(range_n_minus_1.begin(), range_n_minus_1.end(), 0);
-    vector<bitset<N>> all_subsets_prev_vec =
-        combinations(range_n_minus_1, r - 1);
-    sort(all_subsets_prev_vec.begin(), all_subsets_prev_vec.end(),
-         RevLexComparator());
-    subsets_prev.clear();
-    for (int i = 0; i < all_subsets_prev_vec.size(); ++i) {
-        bitset<N> s = all_subsets_prev_vec[i];
-        subsets_prev.push_back(s);
+    vector<bitset<N>> subsets_prev_vec =
+        combinations<N>(range_n_minus_1, r - 1);
+    sort(subsets_prev_vec.begin(), subsets_prev_vec.end(),
+         RevLexComparator<N>());
+    for (int i = 0; i < subsets_prev_vec.size(); ++i) {
+        bitset<N> s = subsets_prev_vec[i];
+        subsets_prev[i] = s;
     }
 
-    // Initialize R: combinations of range(n - 1) choose r with n - 2
+    // Initialize R: combos from C([n - 1], r) with n - 2
     R.clear();
-    iota(range_n_minus_1.begin(), range_n_minus_1.end(), 0);
-    vector<bitset<N>> all_combinations = combinations(range_n_minus_1, r);
-    for (const bitset<N>& combo : all_combinations) {
+    vector<bitset<N>> combos = combinations<N>(range_n_minus_1, r);
+    for (const bitset<N>& combo : combos) {
         if (combo[n - 2]) {
             R.push_back(combo);
         }
     }
     // Sort R by reverse lexicographic order
-    sort(R.begin(), R.end(), RevLexComparator());
-
-    P = (unsigned char*)realloc(P, fctrl * bnml * sizeof(unsigned char));
-    if (!P) {
-        throw bad_alloc();
-    }
+    sort(R.begin(), R.end(), RevLexComparator<N>());
 
     // Fill permutation array P
-    vector<vector<int>> all_perms = permutations(range_n);
-    for (int i = 0; i < all_perms.size(); ++i) {
-        const vector<int>& p = all_perms[i];
-        for (int j = 0; j < subsets.size(); ++j) {
-            const bitset<N>& S = subsets[j];
+    vector<vector<int>> perms = permutations(range_n);
+    for (size_t i = 0; i < fctrl; ++i) {
+        for (size_t j = 0; j < bnml; ++j) {
             bitset<N> transformed_set;
             for (int k = 0; k < n; ++k) {
-                if (S[k]) {
-                    transformed_set.set(p[k]);
+                if (subsets[j][k]) {
+                    transformed_set.set(perms[i][k]);
                 }
             }
             P[i * bnml + j] = set_to_num[transformed_set];
@@ -157,7 +108,7 @@ vector<Matroid> IC(int n, int r, bool top_level = false) {
     {
         vector<Matroid> local_matroids;
 #pragma omp for schedule(dynamic) nowait
-        for (int i = 0; i < IC_prev_1.size(); ++i) {
+        for (size_t i = 0; i < IC_prev_1.size(); ++i) {
             const Matroid& M = IC_prev_1[i];
             // Iterate over all linear subclasses without taboo hyperplanes
             for (const vector<int>& LS : M.linear_subclasses(true)) {
@@ -166,7 +117,7 @@ vector<Matroid> IC(int n, int r, bool top_level = false) {
                     Matroid M_ext(n, r, revlex_ext);
                     local_matroids.push_back(M_ext);
                     if (top_level) {
-#pragma omp critical(cnt_io)
+#pragma omp critical(io)
                         {
                             cout << M_ext.revlex << endl;
                         }
@@ -194,22 +145,6 @@ vector<Matroid> IC(int n, int r, bool top_level = false) {
     return matroids;
 }
 
-// Clean up function
-void cleanup() {
-    if (P) {
-        free(P);
-        P = nullptr;
-    }
-    if (factorial) {
-        free(factorial);
-        factorial = nullptr;
-    }
-    if (binomial) {
-        free(binomial);
-        binomial = nullptr;
-    }
-}
-
 int main(int argc, char* argv[]) {
     if (argc != 3 and argc != 4) {
         cout << "Usage: " << argv[0] << " <n> <r> [<num_threads>]" << endl;
@@ -228,10 +163,8 @@ int main(int argc, char* argv[]) {
         vector<Matroid> matroids = IC(n, r, true);
     } catch (const exception& e) {
         cerr << "Error: " << e.what() << endl;
-        cleanup();
         return 1;
     }
 
-    cleanup();
     return 0;
 }

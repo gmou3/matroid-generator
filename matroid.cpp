@@ -1,5 +1,8 @@
+#include "combinatorics.h"
 #include "extension.h"
 #include "matroid.h"
+
+using namespace std;
 
 int Matroid::rank(const bitset<N>& F) const {
     auto it = rank_cache.find(F);
@@ -127,6 +130,7 @@ void Matroid::init_hyperlines() const {
     }
 }
 
-vector<vector<int>> Matroid::linear_subclasses(bool exclude_taboo) const {
+vector<vector<int>> Matroid::linear_subclasses(
+    bool exclude_taboo = false) const {
     return get_linear_subclasses(*this, exclude_taboo);
 }
