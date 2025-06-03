@@ -1,3 +1,5 @@
+#include <bitset>
+
 #include "combinatorics.h"
 #include "extension.h"
 #include "matroid.h"
@@ -14,7 +16,7 @@ int Matroid::rank(const bitset<N>& F) const {
     int max_rank = -1;
     for (int i = 0; i < revlex.length(); ++i) {
         if (revlex[i] == '*') {
-            int cnt = (F & subsets[i]).count();
+            int cnt = (F & index_to_set[i]).count();
             if (cnt > max_rank) {
                 max_rank = cnt;
                 if (cnt == F_cnt) {
@@ -51,9 +53,9 @@ bitset<N> Matroid::closure(const bitset<N>& F) const {
 
 vector<bitset<N>> Matroid::bases(const bool& prev = false) const {
     vector<bitset<N>> bases;
-    vector<bitset<N>>& S = subsets;
+    vector<bitset<N>>& S = index_to_set;
     if (prev) {
-        S = subsets_prev;
+        S = index_to_set_rm1;
     }
     for (int i = 0; i < revlex.length(); ++i) {
         if (revlex[i] == '*') {
@@ -68,7 +70,8 @@ void Matroid::init_hyperplanes() const {
     unordered_set<bitset<N>> res_set;
     for (int i = 0; i < revlex.size(); ++i) {
         if (revlex[i] == '*') {
-            for (const bitset<N>& S : generate_minus_1_subsets(subsets[i], n)) {
+            for (const bitset<N>& S :
+                 generate_minus_1_subsets(index_to_set[i], n)) {
                 res_set.insert(closure(S));
             }
         }

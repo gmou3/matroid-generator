@@ -101,7 +101,7 @@ void dfs_search(Node& node, vector<vector<int>>& linear_subclasses) {
         dfs_search(include_node, linear_subclasses);
     }
 
-    // Try excluding plane p (continue with remaining planes)
+    // Exclude plane p (continue with remaining planes)
     node.remove_plane(p);
     dfs_search(node, linear_subclasses);
 }
@@ -136,7 +136,7 @@ Matroid extend_matroid_coloop(const Matroid& matroid) {
     for (const bitset<N>& old_basis : matroid.bases(true)) {
         bitset<N> new_basis = old_basis;
         new_basis.set(matroid.n);
-        revlex[set_to_num[new_basis]] = '*';
+        revlex[set_to_index[new_basis]] = '*';
     }
 
     return Matroid(matroid.n + 1, matroid.r + 1, revlex);
@@ -152,7 +152,7 @@ string extend_matroid_LS(const Matroid& matroid,
     for (int i = 0; i < matroid.revlex.length(); ++i) {
         if (matroid.revlex[i] == '*') {
             for (const bitset<N>& S :
-                 generate_minus_1_subsets(subsets[i], matroid.n)) {
+                 generate_minus_1_subsets(index_to_set[i], matroid.n)) {
                 bool flag = true;
                 for (const int& j : linear_subclass) {
                     if ((S & matroid.hyperplanes[j]) == S) {
@@ -168,12 +168,12 @@ string extend_matroid_LS(const Matroid& matroid,
     }
 
     // Create extension result string of length C(n - 1, r - 1)
-    string ext_res(bnml_prev, '0');
+    string ext_res(bnml_nm1_rm1, '0');
 
     // Mark appropriate positions with '*'
-    for (bitset<N> t_set : target_sets) {
-        t_set.set(matroid.n);
-        int index = set_to_num[t_set] - bnml_n_minus_1;  // - C(n - 1, r)
+    for (bitset<N> target_set : target_sets) {
+        target_set.set(matroid.n);
+        int index = set_to_index[target_set] - bnml_nm1;  // - C(n - 1, r)
         ext_res[index] = '*';
     }
 

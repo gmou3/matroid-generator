@@ -9,9 +9,9 @@
 
 constexpr size_t N_H = 256;  // maximum number of hyperplanes
 
-inline int bnml_n_minus_1;  // C(n - 1, r)
-inline int bnml_prev;       // C(n - 1, r - 1)
-inline std::unordered_map<std::bitset<N>, unsigned char> set_to_num;
+inline int bnml_nm1;      // C(n - 1, r)
+inline int bnml_nm1_rm1;  // C(n - 1, r - 1)
+inline std::unordered_map<std::bitset<N>, unsigned char> set_to_index;
 
 class Node {
    private:

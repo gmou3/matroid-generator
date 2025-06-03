@@ -7,9 +7,9 @@
 
 constexpr size_t N = 16;  // maximum number of elements
 
-inline std::vector<std::bitset<N>> subsets;  // index to C([n], r)-subset
+inline std::vector<std::bitset<N>> index_to_set;  // index to set from C([n], r)
 inline std::vector<std::bitset<N>>
-    subsets_prev;  // index to C([n - 1], r - 1)-subset
+    index_to_set_rm1;  // index to set from C([n - 1], r - 1)
 
 inline std::vector<std::bitset<N>> R;  // for taboo_hyperplanes calculation
 
