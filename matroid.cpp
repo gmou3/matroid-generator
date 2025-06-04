@@ -98,11 +98,16 @@ void Matroid::init_taboo_hyperplanes(const vector<bitset<N>>& R) const {
 
     // Prop. 2
     for (const bitset<N> S : R) {
-        if (rank(S) < S.count()) {  // dependent
-            break;
-        }
         bitset<N> SS = S;
         SS.reset(n - 1);  // remove n - 2
+        if (rank(S) < S.count()) {  // dependent
+            if (rank(SS) < SS.count()) {
+                // forced '0' agreement
+                continue;
+            }
+            break;
+        }
+        // forced '*' agreement
         taboo_hyperplanes.insert(closure(SS));
     }
 }
