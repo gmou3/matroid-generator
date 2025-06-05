@@ -7,22 +7,23 @@ isomorphism testing.
 
 ## Build
 
-Compile the source code to create the `IC` executable:
+Compile the source code to build the `IC` executable:
 ```bash
-g++ -fopenmp -O3 -o IC IC.cpp matroid.cpp extension.cpp
+make
 ```
+Tip: use `make test` to execute the test suite.
 
 ## Usage
 
 To generate all (canonical) matroids over `n` elements of rank `r`, run
 ```bash
-./IC <n> <r> [<num_threads>]
+./build/IC <n> <r> [<num_threads>]
 ```
 WARNING: Memory usage scales with `n` and `r`.
 
 A raw example:
 ```bash
-$ ./IC 5 2
+$ ./build/IC 5 2
 **********
 0****0****
 0*********
@@ -40,7 +41,7 @@ $ ./IC 5 2
 
 For a timed and enumerated output, run, e.g.,
 ```bash
-time ./IC 8 4 | cat -n
+time ./build/IC 8 4 | cat -n
 ```
 
 ## Notes
