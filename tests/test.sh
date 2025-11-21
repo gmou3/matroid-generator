@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 test_dir=$(dirname "$0")
 if [ ! -f "$test_dir/../build/IC" ]; then
@@ -7,7 +7,8 @@ if [ ! -f "$test_dir/../build/IC" ]; then
 fi
 
 flag=true
-N=8  # test all matroids up to N elements
+N=8
+echo "Testing for all matroids with up to $N elements..."
 for ((n = 0; n <= N; n++)); do
   for ((r = 0; r <= n; r++)); do
     expected=$(< "$test_dir/expected/n0${n}r0${r}")

@@ -1,7 +1,9 @@
 #include <omp.h>
 
+#include <bitset>
 #include <iostream>
 #include <numeric>
+#include <vector>
 
 #include "combinatorics.h"
 #include "extension.h"
