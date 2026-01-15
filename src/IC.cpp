@@ -13,7 +13,8 @@
 using namespace std;
 
 int num_threads;
-bool output_to_file;
+bool to_file;
+vector<string> f;  // file names for each thread
 
 size_t fctrl;
 size_t bnml;
@@ -49,10 +50,9 @@ vector<Matroid> IC(int n, int r, bool top_level = false) {
     vector<Matroid> matroids;
     if (r == 0 || n == r) {
         // Base cases
-        matroids.push_back(Matroid(n, r, "*"));
-        if (top_level) {
-            cout << "*" << endl;
-        }
+        Matroid M(n, r, "*");
+        if (top_level) output_matroid(M, to_file, f[0], 0);
+        else matroids.push_back(M);
         return matroids;
     }
 
@@ -108,11 +108,8 @@ vector<Matroid> IC(int n, int r, bool top_level = false) {
         }
     }
 
-    vector<string> f;
-    if (top_level && output_to_file) f = open_files(n, r, num_threads);
-
     // Process IC_prev_1
-    vector<vector<Matroid>> local_matroids(num_threads);
+    vector<vector<Matroid>> local_matroids(IC_prev_1.size());
 #pragma omp parallel
     {
 #pragma omp for schedule(dynamic)
@@ -123,17 +120,8 @@ vector<Matroid> IC(int n, int r, bool top_level = false) {
                 string revlex_ext = M.revlex + extend_matroid_LS(M, LS);
                 if (is_canonical(revlex_ext)) {
                     Matroid M_ext(n, r, revlex_ext);
-                    if (top_level) {
-                        if (output_to_file) {
-                            write_revlex_to_file(f[omp_get_thread_num()], M_ext);
-                        } else {
-#pragma omp critical(io)
-                            {
-                                cout << M_ext.revlex << endl;
-                            }
-                        }
-                    }
-                    local_matroids[omp_get_thread_num()].push_back(M_ext);
+                    if (top_level) output_matroid(M_ext, to_file, f[omp_get_thread_num()], i);
+                    else local_matroids[i].push_back(M_ext);
                 }
             }
         }
@@ -146,17 +134,9 @@ vector<Matroid> IC(int n, int r, bool top_level = false) {
     // Process IC_prev_2
     for (const Matroid& M : IC_prev_2) {
         Matroid M_ext = extend_matroid_coloop(M);
-        if (top_level) {
-            if (output_to_file) {
-                write_revlex_to_file(f[num_threads - 1], M_ext);
-            } else {
-                cout << M_ext.revlex << endl;
-            }
-        }
-        matroids.push_back(M_ext);
+        if (top_level) output_matroid(M_ext, to_file, f[num_threads - 1], IC_prev_1.size());
+        else matroids.push_back(M_ext);
     }
-
-    if (top_level && output_to_file) merge_and_delete(f);
 
     return matroids;
 }
@@ -170,21 +150,26 @@ int main(int argc, char* argv[]) {
     int n = stoi(argv[1]);
     int r = stoi(argv[2]);
     num_threads = 1;
-    output_to_file = false;
+    to_file = false;
     if (argc >= 4) {
         if (string(argv[3]) != "--file") {
             num_threads = stoi(argv[3]);
         } else {
-            output_to_file = true;
+            to_file = true;
         }
     }
     omp_set_num_threads(num_threads);
     if (argc == 5 && string(argv[4]) == "--file") {
-        output_to_file = true;
+        to_file = true;
     }
 
     try {
-        vector<Matroid> matroids = IC(n, r, true);
+        if (to_file) f = open_files(n, r, num_threads);
+
+        // Main IC call
+        IC(n, r, true);
+
+        if (to_file) mergesort_and_delete(f);
     } catch (const exception& e) {
         cerr << "Error: " << e.what() << endl;
         return 1;
