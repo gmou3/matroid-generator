@@ -8,10 +8,11 @@ TEST_DIR := tests
 TARGET := $(BUILD_DIR)/IC
 
 SRCS := $(wildcard $(SRC_DIR)/*.cpp)
+HEADERS := $(wildcard $(SRC_DIR)/*.h)
 
 all: $(TARGET)
 
-$(TARGET): $(SRCS) | $(BUILD_DIR)
+$(TARGET): $(SRCS) $(HEADERS) | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 $(BUILD_DIR):
