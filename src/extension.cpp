@@ -95,15 +95,16 @@ void dfs_search(Node& node, vector<vector<int>>& linear_subclasses) {
         return;
     }
 
+    // Exclude plane p (continue with remaining planes)
+    Node exclude_node(node);
+    exclude_node.remove_plane(p);
+    dfs_search(exclude_node, linear_subclasses);
+
     // Try including plane p
     Node include_node(node);
     if (include_node.insert_plane(p)) {
         dfs_search(include_node, linear_subclasses);
     }
-
-    // Exclude plane p (continue with remaining planes)
-    node.remove_plane(p);
-    dfs_search(node, linear_subclasses);
 }
 
 vector<vector<int>> get_linear_subclasses(const Matroid& M,

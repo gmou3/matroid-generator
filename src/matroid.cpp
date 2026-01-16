@@ -1,4 +1,5 @@
 #include <bitset>
+#include <set>
 
 #include "combinatorics.h"
 #include "extension.h"
@@ -67,16 +68,35 @@ vector<bitset<N>> Matroid::bases(const bool& prev = false) const {
 
 // Flats of rank r - 1
 void Matroid::init_hyperplanes() const {
-    unordered_set<bitset<N>> res_set;
+    /*
+     * Hyperplanes are ordered by the revlex order of their
+     * revlex-smallest independent (r-1)-set.
+     * This ensures the lexicographic order of the final output.
+     */
+    unordered_set<bitset<N>> H_unordered;
+    set<bitset<N>, RevLexComparator<N>> ind_sets_rm1;
     for (int i = 0; i < revlex.size(); ++i) {
         if (revlex[i] == '*') {
             for (const bitset<N>& S :
                  generate_minus_1_subsets(index_to_set[i], n)) {
-                res_set.insert(closure(S));
+                H_unordered.insert(closure(S));
+                ind_sets_rm1.insert(S);
             }
         }
     }
-    hyperplanes.assign(res_set.begin(), res_set.end());
+    hyperplanes.reserve(H_unordered.size());
+    for (const auto& I : ind_sets_rm1) {
+        vector<bitset<N>> to_add;
+        for (const auto& H : H_unordered) {
+            if ((I & H) == I) {
+                to_add.push_back(H);
+            }
+        }
+        for (const auto& H : to_add) {
+            hyperplanes.push_back(H);
+            H_unordered.erase(H);
+        }
+    }
     for (int i = 0; i < hyperplanes.size(); ++i) {
         hyperplanes_index[hyperplanes[i]] = i;
     }

@@ -22,26 +22,26 @@ To generate all (canonical) matroids over `n` elements of rank `r`, run
 - `num_threads` (default: 1) — the number of threads to use for parallel computation
 - `--file` (optional) — output will be written to the file `output/n__r__` (instead of `stdout`)
 
-WARNING: Memory usage scales with `n` and `r`.  
-When using multiple threads, note that the output is guaranteed to be ordered as that of the serial execution only if the `--file` option is used.
+WARNING: Memory usage scales with `n` and `r`.
 
 A raw example:
 ```bash
 $ ./build/IC 5 2
 **********
-0****0****
 0*********
+0****0****
 00*0**0***
-000******0
 000*******
-0000**0**0
+000******0
 0000**0***
+0000**0**0
 00000*00**
 000000****
 0000000***
 00000000**
 000000000*
 ```
+Note that the output is lexicographically ordered. The only exception is when parallel execution writes to `stdout`.
 
 For a timed and enumerated output, run, e.g.,
 ```bash
