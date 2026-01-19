@@ -38,5 +38,5 @@ class Matroid {
     void init_hyperplanes() const;
     void init_taboo_hyperplanes(const std::vector<std::bitset<N>>& R) const;
     void init_hyperlines() const;
-    std::vector<std::vector<int>> linear_subclasses(bool exclude_taboo) const;
+    std::vector<Matroid> canonical_extensions() const;
 };

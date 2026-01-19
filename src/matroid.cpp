@@ -119,7 +119,7 @@ void Matroid::init_taboo_hyperplanes(const vector<bitset<N>>& R) const {
     // Prop. 2
     for (const bitset<N> S : R) {
         bitset<N> SS = S;
-        SS.reset(n - 1);  // remove n - 2
+        SS.reset(n - 1);            // remove n - 2
         if (rank(S) < S.count()) {  // dependent
             if (rank(SS) < SS.count()) {
                 // forced '0' agreement
@@ -158,7 +158,6 @@ void Matroid::init_hyperlines() const {
     }
 }
 
-vector<vector<int>> Matroid::linear_subclasses(
-    bool exclude_taboo = false) const {
-    return get_linear_subclasses(*this, exclude_taboo);
+vector<Matroid> Matroid::canonical_extensions() const {
+    return get_canonical_extensions(*this);
 }

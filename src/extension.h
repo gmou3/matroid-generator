@@ -7,6 +7,26 @@
 
 #include "matroid.h"
 
+inline size_t fctrl;
+inline size_t bnml;
+inline std::vector<unsigned char> P;
+
+// Check if matroid is canonical
+inline bool is_canonical(const std::string& revlex) {
+    for (size_t i = 0; i < fctrl; ++i) {
+        size_t offset = i * bnml;
+        for (size_t j = 0; j < bnml; ++j) {
+            if (revlex[P[offset + j]] != revlex[j]) {
+                if (revlex[j] == '*') {
+                    return false;
+                }
+                break;
+            }
+        }
+    }
+    return true;
+}
+
 constexpr size_t N_H = 256;  // maximum number of hyperplanes
 
 inline int bnml_nm1;      // C(n - 1, r)
@@ -32,8 +52,5 @@ class Node {
     std::vector<int> planes() const;
 };
 
-std::vector<std::vector<int>> get_linear_subclasses(const Matroid& M,
-                                                    bool exclude_taboo);
-Matroid extend_matroid_coloop(const Matroid& matroid);
-std::string extend_matroid_LS(const Matroid& matroid,
-                              const std::vector<int>& linear_subclass);
+std::vector<Matroid> get_canonical_extensions(const Matroid& M);
+Matroid extend_matroid_coloop(const Matroid& M);

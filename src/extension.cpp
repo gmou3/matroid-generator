@@ -1,5 +1,8 @@
+#include <vector>
+
 #include "combinatorics.h"
 #include "extension.h"
+#include "matroid.h"
 
 using namespace std;
 
@@ -86,77 +89,19 @@ vector<int> Node::planes() const {
     return result;
 }
 
-void dfs_search(Node& node, vector<vector<int>>& linear_subclasses) {
-    int p = node.select_plane();
-
-    if (p < 0) {
-        // No more free planes - this is a complete linear subclass
-        linear_subclasses.push_back(node.planes());
-        return;
-    }
-
-    // Exclude plane p (continue with remaining planes)
-    Node exclude_node(node);
-    exclude_node.remove_plane(p);
-    dfs_search(exclude_node, linear_subclasses);
-
-    // Try including plane p
-    Node include_node(node);
-    if (include_node.insert_plane(p)) {
-        dfs_search(include_node, linear_subclasses);
-    }
-}
-
-vector<vector<int>> get_linear_subclasses(const Matroid& M,
-                                          bool exclude_taboo) {
-    M.init_hyperplanes();
-    M.init_hyperlines();
-
-    // Create initial node
-    Node first_node(&M);
-
-    if (exclude_taboo) {
-        M.init_taboo_hyperplanes(R);
-        // Remove taboo hyperplanes
-        for (bitset<N> T : M.taboo_hyperplanes) {
-            first_node.remove_plane(M.hyperplanes_index[T]);
-        }
-    }
-
-    vector<vector<int>> linear_subclasses;
-
-    // Start DFS from the initial node
-    dfs_search(first_node, linear_subclasses);
-
-    return linear_subclasses;
-}
-
-Matroid extend_matroid_coloop(const Matroid& matroid) {
-    string revlex(binomial(matroid.n + 1, matroid.r + 1), '0');
-
-    for (const bitset<N>& old_basis : matroid.bases(true)) {
-        bitset<N> new_basis = old_basis;
-        new_basis.set(matroid.n);
-        revlex[set_to_index[new_basis]] = '*';
-    }
-
-    return Matroid(matroid.n + 1, matroid.r + 1, revlex);
-}
-
-string extend_matroid_LS(const Matroid& matroid,
-                         const vector<int>& linear_subclass) {
+string extend_matroid_LS(const Matroid& M, const vector<int>& linear_subclass) {
     // (r - 1)-sets whose extensions with n - 1 are to be marked '*'
     unordered_set<bitset<N>> target_sets;
 
     // Iterate over independent (r - 1)-sets and add to target_sets if they
     // aren't a subset of a hyperplane
-    for (int i = 0; i < matroid.revlex.length(); ++i) {
-        if (matroid.revlex[i] == '*') {
+    for (int i = 0; i < M.revlex.length(); ++i) {
+        if (M.revlex[i] == '*') {
             for (const bitset<N>& S :
-                 generate_minus_1_subsets(index_to_set[i], matroid.n)) {
+                 generate_minus_1_subsets(index_to_set[i], M.n)) {
                 bool flag = true;
                 for (const int& j : linear_subclass) {
-                    if ((S & matroid.hyperplanes[j]) == S) {
+                    if ((S & M.hyperplanes[j]) == S) {
                         flag = false;
                         break;
                     }
@@ -173,10 +118,79 @@ string extend_matroid_LS(const Matroid& matroid,
 
     // Mark appropriate positions with '*'
     for (bitset<N> target_set : target_sets) {
-        target_set.set(matroid.n);
+        target_set.set(M.n);
         int index = set_to_index[target_set] - bnml_nm1;  // - C(n - 1, r)
         ext_res[index] = '*';
     }
 
     return ext_res;
+}
+
+bool dfs_search(Node& node, vector<Matroid>& canonical_extensions) {
+    int p = node.select_plane();
+
+    if (p < 0) {
+        // No more free planes - this is a complete linear subclass
+        string M_ext =
+            node.M->revlex + extend_matroid_LS(*node.M, node.planes());
+        if (is_canonical(M_ext)) {
+            canonical_extensions.push_back(
+                Matroid(node.M->n + 1, node.M->r, M_ext));
+            return true;
+        }
+        return false;
+    }
+
+    // Exclude plane p (continue with remaining planes)
+    Node exclude_node(node);
+    exclude_node.remove_plane(p);
+    bool exclusion_success = dfs_search(exclude_node, canonical_extensions);
+
+    if (exclusion_success) {
+        // Try including plane p
+        Node include_node(node);
+        if (include_node.insert_plane(p)) {
+            dfs_search(include_node, canonical_extensions);
+        }
+    }
+
+    return exclusion_success;
+}
+
+void traverse_linear_subclasses(const Matroid& M, bool exclude_taboo,
+                                vector<Matroid>& canonical_extensions) {
+    M.init_hyperplanes();
+    M.init_hyperlines();
+
+    // Create initial node
+    Node first_node(&M);
+
+    if (exclude_taboo) {
+        M.init_taboo_hyperplanes(R);
+        // Remove taboo hyperplanes
+        for (bitset<N> T : M.taboo_hyperplanes) {
+            first_node.remove_plane(M.hyperplanes_index[T]);
+        }
+    }
+
+    // Start DFS from the initial node
+    dfs_search(first_node, canonical_extensions);
+}
+
+vector<Matroid> get_canonical_extensions(const Matroid& M) {
+    vector<Matroid> canonical_extensions;
+    traverse_linear_subclasses(M, true, canonical_extensions);
+    return canonical_extensions;
+}
+
+Matroid extend_matroid_coloop(const Matroid& M) {
+    string revlex(binomial(M.n + 1, M.r + 1), '0');
+
+    for (const bitset<N>& old_basis : M.bases(true)) {
+        bitset<N> new_basis = old_basis;
+        new_basis.set(M.n);
+        revlex[set_to_index[new_basis]] = '*';
+    }
+
+    return Matroid(M.n + 1, M.r + 1, revlex);
 }
