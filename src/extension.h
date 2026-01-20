@@ -13,11 +13,12 @@ inline std::vector<unsigned char> P;
 
 // Check if matroid is canonical
 inline bool is_canonical(const std::string& revlex) {
-    for (size_t i = 0; i < fctrl; ++i) {
-        size_t offset = i * bnml;
+    const char* revlex_ptr = revlex.data();
+    const unsigned char* perm = P.data();
+    for (size_t i = 0; i < fctrl; ++i, perm += bnml) {
         for (size_t j = 0; j < bnml; ++j) {
-            if (revlex[P[offset + j]] != revlex[j]) {
-                if (revlex[j] == '*') {
+            if (revlex_ptr[perm[j]] != revlex_ptr[j]) {
+                if (revlex_ptr[j] == '*') {
                     return false;
                 }
                 break;

@@ -18,7 +18,7 @@ vector<string> f;  // file names for each thread
 
 vector<Matroid> IC(int n, int r, bool top_level = false) {
     if (r < 0 || n < r) {
-        throw runtime_error("Ensure that r >= 0 and n >= r");
+        return {};
     }
 
     if (top_level) {
@@ -94,7 +94,7 @@ vector<Matroid> IC(int n, int r, bool top_level = false) {
     vector<vector<Matroid>> local_matroids(IC_prev_1.size());
 #pragma omp parallel
     {
-#pragma omp for schedule(dynamic) nowait
+#pragma omp for schedule(dynamic, 1) nowait
         for (size_t i = 0; i < IC_prev_1.size(); ++i) {
             const Matroid& M = IC_prev_1[i];
             // Iterate over all linear subclasses without taboo hyperplanes
@@ -147,17 +147,12 @@ int main(int argc, char* argv[]) {
         to_file = true;
     }
 
-    try {
-        if (to_file) f = open_files(n, r, num_threads);
+    if (to_file) f = open_files(n, r, num_threads);
 
-        // Main IC call
-        IC(n, r, true);
+    // Main IC call
+    IC(n, r, true);
 
-        if (to_file) mergesort_and_delete(f);
-    } catch (const exception& e) {
-        cerr << "Error: " << e.what() << endl;
-        return 1;
-    }
+    if (to_file) mergesort_and_delete(f);
 
     return 0;
 }
