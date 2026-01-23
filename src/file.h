@@ -1,18 +1,20 @@
 #include <omp.h>
 
-#include <iostream>
+#include <filesystem>
 #include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <queue>
 #include <sstream>
-#include <iomanip>  // for std::setw and std::setfill
-#include <filesystem>
-namespace fs = std::filesystem;
 
 #include "matroid.h"
 
+using namespace std;
+namespace fs = filesystem;
+
 struct Line {
     size_t file_index;
-    std::string revlex;
+    string revlex;
     size_t line_index;
 
     bool operator>(const Line& other) const {
@@ -22,31 +24,31 @@ struct Line {
 };
 
 // Generate filename based on n, r, and thread number
-inline std::stringstream generate_filename(int n, int r, int thread_num) {
-    std::stringstream filename;
+inline stringstream generate_filename(int n, int r, int thread_num) {
+    stringstream filename;
     filename << "output" << "/"
-             << "n" << std::setw(2) << std::setfill('0') << n
-             << "r" << std::setw(2) << std::setfill('0') << r
-             << "-thread" << std::setw(2) << std::setfill('0') << thread_num;
+             << "n" << setw(2) << setfill('0') << n << "r" << setw(2)
+             << setfill('0') << r << "-thread" << setw(2) << setfill('0')
+             << thread_num;
 
     return filename;
 }
 
 // Open files (one for each thread) and return file names
-inline std::vector<std::string> open_files(int n, int r, int threads) {
+inline vector<string> open_files(int n, int r, int threads) {
     if (!fs::exists("output")) {
         if (!fs::create_directory("output")) {
-            std::cerr << "Error: Could not create output directory" << std::endl;
+            cerr << "Error: Could not create output directory" << endl;
             return {};
         }
     }
 
-    std::vector<std::string> filenames;
+    vector<string> filenames;
     for (int i = 0; i < threads; ++i) {
-        std::stringstream filename = generate_filename(n, r, i);
-        std::ofstream file(filename.str(), std::ios::binary);
+        stringstream filename = generate_filename(n, r, i);
+        ofstream file(filename.str(), ios::binary);
         if (!file) {
-            std::cerr << "Error: Could not create file " << filename.str() << std::endl;
+            cerr << "Error: Could not create file " << filename.str() << endl;
             return {};
         }
         filenames.push_back(filename.str());
@@ -56,55 +58,58 @@ inline std::vector<std::string> open_files(int n, int r, int threads) {
 }
 
 // Output matroid either to file or to stdout
-inline void output_matroid(const Matroid& M, const bool& to_file, const std::string& filename, const int& index) {
+inline void output_matroid(const Matroid& M, const bool& to_file,
+                           const string& filename, const int& index) {
     if (to_file) {
-        std::ofstream file(filename, std::ios::binary | std::ios::app);
+        ofstream file(filename, ios::binary | ios::app);
         if (file.is_open()) {
-            file << M.revlex << " " << index << "\n";  // include index for sorting later
+            file << M.revlex << " " << index
+                 << "\n";  // include index for sorting later
         } else {
-            std::cerr << "Error opening file: " << filename << std::endl;
+            cerr << "Error opening file: " << filename << endl;
         }
     } else {
 #pragma omp critical(io)
         {
-            std::cout << M.revlex << std::endl;
+            cout << M.revlex << endl;
         }
     }
 }
 
 // Merge the files and sort the matroids to coincide with single-threaded output
-inline void mergesort_and_delete(const std::vector<std::string>& filenames) {
+inline void mergesort_and_delete(const vector<string>& filenames) {
     // Open all files for reading
-    std::vector<std::ifstream> files(filenames.size());
+    vector<ifstream> files(filenames.size());
     for (size_t i = 0; i < filenames.size(); ++i) {
-        files[i].open(filenames[i], std::ios::in);
+        files[i].open(filenames[i], ios::in);
         if (!files[i]) {
-            std::cerr << "Error opening file " << filenames[i] << std::endl;
+            cerr << "Error opening file " << filenames[i] << endl;
             return;
         }
     }
 
     // Compute output filename based on the first input file
-    std::string first_filename = filenames.front();
+    string first_filename = filenames.front();
     size_t pos = first_filename.find('-');
-    std::string output_filename = first_filename.substr(0, pos);  // Get substring up to the first '-'
+    string output_filename =
+        first_filename.substr(0, pos);  // Get substring up to the first '-'
 
     // Open output file
-    std::ofstream out(output_filename, std::ios::binary);
+    ofstream out(output_filename, ios::binary);
     if (!out) {
-        std::cerr << "Error opening output file for writing" << std::endl;
+        cerr << "Error opening output file for writing" << endl;
         return;
     }
 
     // Priority queue to merge lines (min-heap based on index)
-    std::priority_queue<Line, std::vector<Line>, std::greater<Line>> pq;
+    priority_queue<Line, vector<Line>, greater<Line>> pq;
 
     // Initialize the priority queue with the first line of each file
     for (size_t i = 0; i < filenames.size(); ++i) {
-        std::string line;
-        if (std::getline(files[i], line)) {
-            std::stringstream ss(line);
-            std::string revlex;
+        string line;
+        if (getline(files[i], line)) {
+            stringstream ss(line);
+            string revlex;
             size_t index;
             ss >> revlex >> index;  // Split the line into revlex and index
             pq.push({i, revlex, index});
@@ -117,13 +122,13 @@ inline void mergesort_and_delete(const std::vector<std::string>& filenames) {
         pq.pop();
 
         // Write the current line to the output file
-        out << current.revlex << std::endl;
+        out << current.revlex << endl;
 
         // Read the next line from the file that provided the current line
-        std::string line;
-        if (std::getline(files[current.file_index], line)) {
-            std::stringstream ss(line);
-            std::string revlex;
+        string line;
+        if (getline(files[current.file_index], line)) {
+            stringstream ss(line);
+            string revlex;
             size_t index;
             ss >> revlex >> index;  // Split the line into revlex and index
             pq.push({current.file_index, revlex, index});
@@ -140,7 +145,7 @@ inline void mergesort_and_delete(const std::vector<std::string>& filenames) {
     // Delete input files
     for (const auto& filename : filenames) {
         if (!fs::remove(filename)) {
-            std::cerr << "Failed to delete " << filename << std::endl;
+            cerr << "Failed to delete " << filename << endl;
         }
     }
 }

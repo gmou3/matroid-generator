@@ -52,18 +52,16 @@ bitset<N> Matroid::closure(const bitset<N>& F) const {
     return cl;
 }
 
-vector<bitset<N>> Matroid::bases(const bool& prev = false) const {
-    vector<bitset<N>> bases;
-    vector<bitset<N>>& S = index_to_set;
-    if (prev) {
-        S = index_to_set_rm1;
-    }
-    for (int i = 0; i < revlex.length(); ++i) {
+// Independent (r - 1)-sets
+void Matroid::init_ind_sets_rm1() const {
+    for (int i = 0; i < revlex.size(); ++i) {
         if (revlex[i] == '*') {
-            bases.push_back(S[i]);
+            for (const bitset<N>& S :
+                 generate_minus_1_subsets(index_to_set[i], n)) {
+                ind_sets_rm1.insert(S);
+            }
         }
     }
-    return bases;
 }
 
 // Flats of rank r - 1
@@ -74,15 +72,8 @@ void Matroid::init_hyperplanes() const {
      * This ensures the lexicographic order of the final output.
      */
     unordered_set<bitset<N>> H_unordered;
-    set<bitset<N>, RevLexComparator<N>> ind_sets_rm1;
-    for (int i = 0; i < revlex.size(); ++i) {
-        if (revlex[i] == '*') {
-            for (const bitset<N>& S :
-                 generate_minus_1_subsets(index_to_set[i], n)) {
-                H_unordered.insert(closure(S));
-                ind_sets_rm1.insert(S);
-            }
-        }
+    for (const bitset<N>& I : ind_sets_rm1) {
+        H_unordered.insert(closure(I));
     }
     hyperplanes.reserve(H_unordered.size());
     for (const auto& I : ind_sets_rm1) {

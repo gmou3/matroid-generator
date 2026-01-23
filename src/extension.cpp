@@ -95,35 +95,30 @@ string extend_matroid_LS(const Matroid& M, const vector<int>& linear_subclass) {
 
     // Iterate over independent (r - 1)-sets and add to target_sets if they
     // aren't a subset of a hyperplane
-    for (int i = 0; i < M.revlex.length(); ++i) {
-        if (M.revlex[i] == '*') {
-            for (const bitset<N>& S :
-                 generate_minus_1_subsets(index_to_set[i], M.n)) {
-                bool flag = true;
-                for (const int& j : linear_subclass) {
-                    if ((S & M.hyperplanes[j]) == S) {
-                        flag = false;
-                        break;
-                    }
-                }
-                if (flag) {
-                    target_sets.insert(S);
-                }
+    for (const bitset<N>& I : M.ind_sets_rm1) {
+        bool flag = true;
+        for (const int& j : linear_subclass) {
+            if ((I & M.hyperplanes[j]) == I) {
+                flag = false;
+                break;
             }
+        }
+        if (flag) {
+            target_sets.insert(I);
         }
     }
 
     // Create extension result string of length C(n - 1, r - 1)
-    string ext_res(bnml_nm1_rm1, '0');
+    string ext_string(bnml_nm1_rm1, '0');
 
     // Mark appropriate positions with '*'
     for (bitset<N> target_set : target_sets) {
         target_set.set(M.n);
         int index = set_to_index[target_set] - bnml_nm1;  // - C(n - 1, r)
-        ext_res[index] = '*';
+        ext_string[index] = '*';
     }
 
-    return ext_res;
+    return ext_string;
 }
 
 bool dfs_search(Node& node, vector<Matroid>& canonical_extensions) {
@@ -159,6 +154,7 @@ bool dfs_search(Node& node, vector<Matroid>& canonical_extensions) {
 
 void traverse_linear_subclasses(const Matroid& M, bool exclude_taboo,
                                 vector<Matroid>& canonical_extensions) {
+    M.init_ind_sets_rm1();
     M.init_hyperplanes();
     M.init_hyperlines();
 
@@ -184,12 +180,11 @@ vector<Matroid> get_canonical_extensions(const Matroid& M) {
 }
 
 Matroid extend_matroid_coloop(const Matroid& M) {
-    string revlex(binomial(M.n + 1, M.r + 1), '0');
+    string revlex(bnml, '0');
 
-    for (const bitset<N>& old_basis : M.bases(true)) {
-        bitset<N> new_basis = old_basis;
-        new_basis.set(M.n);
-        revlex[set_to_index[new_basis]] = '*';
+    // C(n, r) = C(n - 1, r - 1) + C(n - 1, r)
+    for (size_t i = 0; i < bnml_nm1_rm1; ++i) {
+        revlex[bnml_nm1 + i] = M.revlex[i];
     }
 
     return Matroid(M.n + 1, M.r + 1, revlex);

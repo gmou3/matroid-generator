@@ -1,8 +1,6 @@
 #include <omp.h>
 
-#include <bitset>
 #include <iostream>
-#include <numeric>
 #include <vector>
 
 #include "combinatorics.h"
@@ -16,7 +14,7 @@ int num_threads;
 bool to_file;
 vector<string> f;  // file names for each thread
 
-vector<Matroid> IC(int n, int r, bool top_level = false) {
+vector<Matroid> IC(int n, int r, bool top_level = true) {
     if (r < 0 || n < r) {
         return {};
     }
@@ -39,56 +37,14 @@ vector<Matroid> IC(int n, int r, bool top_level = false) {
     }
 
     // Recursive calls
-    vector<Matroid> IC_prev_1 = IC(n - 1, r);
-    vector<Matroid> IC_prev_2 = IC(n - 1, r - 1);
+    vector<Matroid> IC_prev_1 = IC(n - 1, r, false);
+    vector<Matroid> IC_prev_2 = IC(n - 1, r - 1, false);
 
-    // Initialize factorial and binomial coefficients
-    fctrl = factorial(n);
-    bnml = binomial(n, r);
-    bnml_nm1 = binomial(n - 1, r);
-    bnml_nm1_rm1 = binomial(n - 1, r - 1);
-
-    // Initialize index-to-set mappings
-    vector<int> range_n(n), range_nm1(n - 1);
-    iota(range_n.begin(), range_n.end(),
-         0);  // Fill with [n] = {0, 1, ..., n - 1}
-    iota(range_nm1.begin(), range_nm1.end(),
-         0);  // Fill with [n - 1] = {0, 1, ..., n - 2}
-    index_to_set = combinations<N>(range_n, r);
-    index_to_set_rm1 = combinations<N>(range_nm1, r - 1);
-    sort(index_to_set.begin(), index_to_set.end(), RevLexComparator<N>());
-    sort(index_to_set_rm1.begin(), index_to_set_rm1.end(),
-         RevLexComparator<N>());
-
-    // Initialize set-to-index mapping
-    set_to_index.clear();
-    for (int i = 0; i < bnml; ++i) {
-        set_to_index[index_to_set[i]] = i;
-    }
-
-    // Initialize R: combos from C([n - 1], r) with n - 2
-    R.clear();
-    vector<bitset<N>> combos = combinations<N>(range_nm1, r);
-    for (const bitset<N>& combo : combos) {
-        if (combo[n - 2]) {
-            R.push_back(combo);
-        }
-    }
-    sort(R.begin(), R.end(), RevLexComparator<N>());
-
-    // Fill permutation array P
-    vector<vector<int>> perms = permutations(range_n);
-    for (size_t i = 0; i < fctrl; ++i) {
-        for (size_t j = 0; j < bnml; ++j) {
-            bitset<N> transformed_set;
-            for (int k = 0; k < n; ++k) {
-                if (index_to_set[j][k]) {
-                    transformed_set.set(perms[i][k]);
-                }
-            }
-            P[i * bnml + j] = set_to_index[transformed_set];
-        }
-    }
+    /* Initialize factorials, binomial coefficients,
+     * mappings between indices and sets,
+     * and fill permutation array of size n! * C(n, r)
+     */
+    initialize_combinatorics(n, r);
 
     // Process IC_prev_1
     vector<vector<Matroid>> local_matroids(IC_prev_1.size());
@@ -150,7 +106,7 @@ int main(int argc, char* argv[]) {
     if (to_file) f = open_files(n, r, num_threads);
 
     // Main IC call
-    IC(n, r, true);
+    IC(n, r);
 
     if (to_file) mergesort_and_delete(f);
 
