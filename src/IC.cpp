@@ -15,8 +15,15 @@ bool to_file;
 vector<string> f;  // file names for each thread
 
 vector<Matroid> IC(int n, int r, bool top_level = true) {
+    // Base cases
     if (r < 0 || n < r) {
         return {};
+    }
+    else if (r == 0 || n == r) {
+        Matroid M(n, r, "*");
+        if (top_level)
+            output_matroid(M, to_file, f[0], 0);
+        return {M};
     }
 
     if (top_level) {
@@ -25,20 +32,9 @@ vector<Matroid> IC(int n, int r, bool top_level = true) {
         index_to_set_rm1.resize(binomial(n - 1, r - 1));
     }
 
-    vector<Matroid> matroids;
-    if (r == 0 || n == r) {
-        // Base cases
-        Matroid M(n, r, "*");
-        if (top_level)
-            output_matroid(M, to_file, f[0], 0);
-        else
-            matroids.push_back(M);
-        return matroids;
-    }
-
     // Recursive calls
-    vector<Matroid> IC_prev_1 = IC(n - 1, r, false);
-    vector<Matroid> IC_prev_2 = IC(n - 1, r - 1, false);
+    vector<Matroid> IC_nm1 = IC(n - 1, r, false);
+    vector<Matroid> IC_nm1_rm1 = IC(n - 1, r - 1, false);
 
     /* Initialize factorials, binomial coefficients,
      * mappings between indices and sets,
@@ -46,13 +42,14 @@ vector<Matroid> IC(int n, int r, bool top_level = true) {
      */
     initialize_combinatorics(n, r);
 
-    // Process IC_prev_1
-    vector<vector<Matroid>> local_matroids(IC_prev_1.size());
+    // Process IC_nm1
+    vector<Matroid> matroids;
+    vector<vector<Matroid>> local_matroids(IC_nm1.size());
 #pragma omp parallel
     {
 #pragma omp for schedule(dynamic, 1) nowait
-        for (size_t i = 0; i < IC_prev_1.size(); ++i) {
-            const Matroid& M = IC_prev_1[i];
+        for (size_t i = 0; i < IC_nm1.size(); ++i) {
+            const Matroid& M = IC_nm1[i];
             // Iterate over all linear subclasses without taboo hyperplanes
             for (const Matroid& M_ext : M.canonical_extensions()) {
                 if (top_level)
@@ -67,12 +64,12 @@ vector<Matroid> IC(int n, int r, bool top_level = true) {
         matroids.insert(matroids.end(), v.begin(), v.end());
     }
 
-    // Process IC_prev_2
-    for (const Matroid& M : IC_prev_2) {
+    // Process IC_nm1_rm1
+    for (const Matroid& M : IC_nm1_rm1) {
         Matroid M_ext = extend_matroid_coloop(M);
         if (top_level)
             output_matroid(M_ext, to_file, f[num_threads - 1],
-                           IC_prev_1.size());
+                           IC_nm1.size());
         else
             matroids.push_back(M_ext);
     }
