@@ -66,11 +66,9 @@ void Matroid::init_ind_sets_rm1() const {
 
 // Flats of rank r - 1
 void Matroid::init_hyperplanes() const {
-    /*
-     * Hyperplanes are ordered by the revlex order of their
-     * revlex-smallest independent (r-1)-set.
-     * This ensures the lexicographic order of the final output.
-     */
+    // Hyperplanes are ordered by the revlex order of their
+    // revlex-smallest independent (r-1)-set.
+    // This ensures the lexicographic order of the final output.
     unordered_set<bitset<N>> H_unordered;
     for (const bitset<N>& I : ind_sets_rm1) {
         H_unordered.insert(closure(I));

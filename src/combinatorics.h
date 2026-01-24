@@ -133,6 +133,8 @@ inline void initialize_combinatorics(int n, int r) {
     sort(R.begin(), R.end(), RevLexComparator<N>());
 
     // Fill permutation array P
+    // The (bnml x fctrl) layout is more cache-friendly
+    // See the function `is_canonical` for an explanation
     vector<vector<int>> perms = permutations(range_n);
     for (size_t i = 0; i < fctrl; ++i) {
         for (size_t j = 0; j < bnml; ++j) {
@@ -142,7 +144,7 @@ inline void initialize_combinatorics(int n, int r) {
                     transformed_set.set(perms[i][k]);
                 }
             }
-            P[i * bnml + j] = set_to_index[transformed_set];
+            P[j * fctrl + i] = set_to_index[transformed_set];
         }
     }
 }

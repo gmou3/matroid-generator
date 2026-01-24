@@ -14,9 +14,11 @@ using namespace std;
 inline bool is_canonical(const string& revlex) {
     const char* revlex_ptr = revlex.data();
     const unsigned char* perm = P.data();
-    for (size_t i = 0; i < fctrl; ++i, perm += bnml) {
+    for (size_t i = 0; i < fctrl; ++i) {
         for (size_t j = 0; j < bnml; ++j) {
-            if (revlex_ptr[perm[j]] != revlex_ptr[j]) {
+            // This inner loop typically breaks very fast (<3 iterations)
+            // Thus, the (bnml x fctrl) layout of P is more cache-friendly
+            if (revlex_ptr[perm[j * fctrl + i]] != revlex_ptr[j]) {
                 if (revlex_ptr[j] == '*') {
                     return false;
                 }

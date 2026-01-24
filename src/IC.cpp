@@ -27,7 +27,7 @@ vector<Matroid> IC(int n, int r, bool top_level = true) {
     }
 
     if (top_level) {
-        P.resize(factorial(n) * binomial(n, r));
+        P.resize(binomial(n, r) * factorial(n));
         index_to_set.resize(binomial(n, r));
         index_to_set_rm1.resize(binomial(n - 1, r - 1));
     }
@@ -36,10 +36,9 @@ vector<Matroid> IC(int n, int r, bool top_level = true) {
     vector<Matroid> IC_nm1 = IC(n - 1, r, false);
     vector<Matroid> IC_nm1_rm1 = IC(n - 1, r - 1, false);
 
-    /* Initialize factorials, binomial coefficients,
-     * mappings between indices and sets,
-     * and fill permutation array of size n! * C(n, r)
-     */
+    // Initialize factorials, binomial coefficients,
+    // mappings between indices and sets,
+    // and fill permutation array of size C(n, r) * n!
     initialize_combinatorics(n, r);
 
     // Process IC_nm1
