@@ -12,6 +12,9 @@
 using namespace std;
 namespace fs = filesystem;
 
+bool to_file;
+vector<string> filenames;  // one per thread
+
 struct Line {
     size_t file_index;
     string revlex;
@@ -24,7 +27,7 @@ struct Line {
 };
 
 // Generate filename based on n, r, and thread number
-inline stringstream generate_filename(int n, int r, int thread_num) {
+inline stringstream generate_filename(size_t n, size_t r, int thread_num) {
     stringstream filename;
     filename << "output" << "/"
              << "n" << setw(2) << setfill('0') << n << "r" << setw(2)
@@ -35,32 +38,29 @@ inline stringstream generate_filename(int n, int r, int thread_num) {
 }
 
 // Open files (one for each thread) and return file names
-inline vector<string> open_files(int n, int r, int threads) {
+void open_files(size_t n, size_t r, int threads) {
     if (!fs::exists("output")) {
         if (!fs::create_directory("output")) {
             cerr << "Error: Could not create output directory" << endl;
-            return {};
+            return;
         }
     }
 
-    vector<string> filenames;
     for (int i = 0; i < threads; ++i) {
         stringstream filename = generate_filename(n, r, i);
         ofstream file(filename.str(), ios::binary);
         if (!file) {
             cerr << "Error: Could not create file " << filename.str() << endl;
-            return {};
+            return;
         }
         filenames.push_back(filename.str());
     }
-
-    return filenames;
 }
 
 // Output matroid either to file or to stdout
-inline void output_matroid(const Matroid& M, const bool& to_file,
-                           const string& filename, const int& index) {
+inline void output_matroid(const Matroid& M, const size_t& index) {
     if (to_file) {
+        string filename = filenames[omp_get_thread_num()];
         ofstream file(filename, ios::binary | ios::app);
         if (file.is_open()) {
             file << M.revlex << " " << index
@@ -77,7 +77,7 @@ inline void output_matroid(const Matroid& M, const bool& to_file,
 }
 
 // Merge the files and sort the matroids to coincide with single-threaded output
-inline void mergesort_and_delete(const vector<string>& filenames) {
+inline void merge_files() {
     // Open all files for reading
     vector<ifstream> files(filenames.size());
     for (size_t i = 0; i < filenames.size(); ++i) {

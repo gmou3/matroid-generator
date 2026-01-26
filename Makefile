@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -fopenmp -O3
+CXXFLAGS := -O2 -march=native -fopenmp -Wall -Wextra -Wpedantic -Wconversion
 SHELL_CMD := bash
 
 SRC_DIR := src
@@ -21,7 +21,10 @@ $(BUILD_DIR):
 test: $(TARGET)
 	$(SHELL_CMD) $(TEST_DIR)/test.sh
 
+format:
+	clang-format -i $(SRCS) $(HEADERS)
+
 clean:
 	rm -rf $(BUILD_DIR)
 
-.PHONY: all test clean
+.PHONY: all test format clean

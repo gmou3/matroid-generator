@@ -1,23 +1,24 @@
+#include "matroid.h"
+
 #include <bitset>
 #include <set>
 
 #include "combinatorics.h"
 #include "extension.h"
-#include "matroid.h"
 
 using namespace std;
 
-int Matroid::rank(const bitset<N>& F) const {
+size_t Matroid::rank(const bitset<N>& F) const {
     auto it = rank_cache.find(F);
     if (it != rank_cache.end()) {
         return it->second;
     }
 
-    int F_cnt = F.count();
-    int max_rank = -1;
-    for (int i = 0; i < revlex.length(); ++i) {
+    size_t F_cnt = F.count();
+    size_t max_rank = 0;
+    for (size_t i = 0; i < revlex.length(); ++i) {
         if (revlex[i] == '*') {
-            int cnt = (F & index_to_set[i]).count();
+            size_t cnt = (F & index_to_set[i]).count();
             if (cnt > max_rank) {
                 max_rank = cnt;
                 if (cnt == F_cnt) {
@@ -38,8 +39,8 @@ bitset<N> Matroid::closure(const bitset<N>& F) const {
     }
 
     bitset<N> cl = F;
-    int rank_F = rank(F);
-    for (int i = 0; i < n; ++i) {
+    size_t rank_F = rank(F);
+    for (size_t i = 0; i < n; ++i) {
         if (!cl[i]) {
             cl.set(i);
             if (rank(cl) > rank_F) {
@@ -54,7 +55,7 @@ bitset<N> Matroid::closure(const bitset<N>& F) const {
 
 // Independent (r - 1)-sets
 void Matroid::init_ind_sets_rm1() const {
-    for (int i = 0; i < revlex.size(); ++i) {
+    for (size_t i = 0; i < revlex.size(); ++i) {
         if (revlex[i] == '*') {
             for (const bitset<N>& S :
                  generate_minus_1_subsets(index_to_set[i], n)) {
@@ -67,7 +68,7 @@ void Matroid::init_ind_sets_rm1() const {
 // Flats of rank r - 1
 void Matroid::init_hyperplanes() const {
     // Hyperplanes are ordered by the revlex order of their
-    // revlex-smallest independent (r-1)-set.
+    // revlex-smallest independent (r - 1)-set.
     // This ensures the lexicographic order of the final output.
     unordered_set<bitset<N>> H_unordered;
     for (const bitset<N>& I : ind_sets_rm1) {
@@ -86,14 +87,14 @@ void Matroid::init_hyperplanes() const {
             H_unordered.erase(H);
         }
     }
-    for (int i = 0; i < hyperplanes.size(); ++i) {
+    for (size_t i = 0; i < hyperplanes.size(); ++i) {
         hyperplanes_index[hyperplanes[i]] = i;
     }
 }
 
 void Matroid::init_taboo_hyperplanes(const vector<bitset<N>>& R) const {
     // Prop. 1
-    int mx = 0;
+    size_t mx = 0;
     for (const bitset<N>& H : hyperplanes) {
         if (mx < H.count()) {
             mx = H.count();
@@ -136,7 +137,7 @@ void Matroid::init_hyperlines() const {
     planes_to_lines.resize(hyperplanes.size());
     lines_to_planes.resize(hyperlines.size());
     for (const bitset<N>& H : hyperplanes) {
-        int cnt = 0;
+        size_t cnt = 0;
         for (const bitset<N>& L : hyperlines) {
             if ((H & L) == L) {
                 planes_to_lines[hyperplanes_index[H]].push_back(cnt);

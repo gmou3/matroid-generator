@@ -1,19 +1,20 @@
+#include "extension.h"
+
 #include <vector>
 
 #include "combinatorics.h"
-#include "extension.h"
 #include "matroid.h"
 
 using namespace std;
 
 Node::Node(const Matroid* M) : M(M) {
     p_free.reset();
-    for (int i = 0; i < M->hyperplanes.size(); ++i) {
+    for (size_t i = 0; i < M->hyperplanes.size(); ++i) {
         p_free.set(i);
     }
     p_in.reset();
     l0.reset();
-    for (int i = 0; i < M->hyperlines.size(); ++i) {
+    for (size_t i = 0; i < M->hyperlines.size(); ++i) {
         l0.set(i);
     }
     l1.reset();
@@ -26,20 +27,20 @@ Node::Node(const Node& other)
       l1(other.l1),
       M(other.M) {}
 
-bool Node::insert_plane(const int& p) {
+bool Node::insert_plane(const size_t& p) {
     p_free.reset(p);
     p_in.set(p);
 
-    vector<int> p_stack = {p};
-    vector<int> l_stack;
+    vector<size_t> p_stack = {p};
+    vector<size_t> l_stack;
 
     while (!p_stack.empty()) {
         // Process hyperplanes
         while (!p_stack.empty()) {
-            int p = p_stack.back();
+            size_t p = p_stack.back();
             p_stack.pop_back();
 
-            for (int l : M->planes_to_lines[p]) {
+            for (size_t l : M->planes_to_lines[p]) {
                 if (l0[l]) {
                     l0.reset(l);
                     l1.set(l);
@@ -52,10 +53,10 @@ bool Node::insert_plane(const int& p) {
 
         // Process hyperlines
         while (!l_stack.empty()) {
-            int l = l_stack.back();
+            size_t l = l_stack.back();
             l_stack.pop_back();
 
-            for (int pl : M->lines_to_planes[l]) {
+            for (size_t pl : M->lines_to_planes[l]) {
                 if (p_in[pl]) continue;
 
                 if (p_free[pl]) {
@@ -71,25 +72,26 @@ bool Node::insert_plane(const int& p) {
     return true;
 }
 
-void Node::remove_plane(const int& p) { p_free.reset(p); }
+void Node::remove_plane(const size_t& p) { p_free.reset(p); }
 
-int Node::select_plane() {
+size_t Node::select_plane() {
     // Find first free plane
-    for (int i = 0; i < M->hyperplanes.size(); ++i) {
+    for (size_t i = 0; i < M->hyperplanes.size(); ++i) {
         if (p_free[i]) return i;
     }
-    return -1;
+    return M->hyperplanes.size();
 }
 
-vector<int> Node::planes() const {
-    vector<int> result;
-    for (int i = 0; i < M->hyperplanes.size(); ++i) {
+vector<size_t> Node::planes() const {
+    vector<size_t> result;
+    for (size_t i = 0; i < M->hyperplanes.size(); ++i) {
         if (p_in[i]) result.push_back(i);
     }
     return result;
 }
 
-string extend_matroid_LS(const Matroid& M, const vector<int>& linear_subclass) {
+string extend_matroid_LS(const Matroid& M,
+                         const vector<size_t>& linear_subclass) {
     // (r - 1)-sets whose extensions with n - 1 are to be marked '*'
     unordered_set<bitset<N>> target_sets;
 
@@ -97,7 +99,7 @@ string extend_matroid_LS(const Matroid& M, const vector<int>& linear_subclass) {
     // aren't a subset of a hyperplane
     for (const bitset<N>& I : M.ind_sets_rm1) {
         bool flag = true;
-        for (const int& j : linear_subclass) {
+        for (const size_t& j : linear_subclass) {
             if ((I & M.hyperplanes[j]) == I) {
                 flag = false;
                 break;
@@ -114,7 +116,7 @@ string extend_matroid_LS(const Matroid& M, const vector<int>& linear_subclass) {
     // Mark appropriate positions with '*'
     for (bitset<N> target_set : target_sets) {
         target_set.set(M.n);
-        int index = set_to_index[target_set] - bnml_nm1;  // - C(n - 1, r)
+        size_t index = set_to_index[target_set] - bnml_nm1;  // - C(n - 1, r)
         ext_string[index] = '*';
     }
 
@@ -122,9 +124,9 @@ string extend_matroid_LS(const Matroid& M, const vector<int>& linear_subclass) {
 }
 
 bool dfs_search(Node& node, vector<Matroid>& canonical_extensions) {
-    int p = node.select_plane();
+    size_t p = node.select_plane();
 
-    if (p < 0) {
+    if (p == node.M->hyperplanes.size()) {
         // No more free planes - this is a complete linear subclass
         string M_ext =
             node.M->revlex + extend_matroid_LS(*node.M, node.planes());
@@ -138,13 +140,13 @@ bool dfs_search(Node& node, vector<Matroid>& canonical_extensions) {
 
     // Exclude plane p (continue with remaining planes)
     Node exclude_node(node);
-    exclude_node.remove_plane(p);
+    exclude_node.remove_plane((size_t)p);
     bool exclusion_success = dfs_search(exclude_node, canonical_extensions);
 
     if (exclusion_success) {
         // Try including plane p
         Node include_node(node);
-        if (include_node.insert_plane(p)) {
+        if (include_node.insert_plane((size_t)p)) {
             dfs_search(include_node, canonical_extensions);
         }
     }

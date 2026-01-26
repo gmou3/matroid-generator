@@ -14,11 +14,11 @@ using namespace std;
 inline bool is_canonical(const string& revlex) {
     const char* revlex_ptr = revlex.data();
     const unsigned char* perm = P.data();
-    for (size_t i = 0; i < fctrl; ++i) {
+    for (size_t i = 0; i < fctrl_m1; ++i) {
         for (size_t j = 0; j < bnml; ++j) {
             // This inner loop typically breaks very fast (<3 iterations)
             // Thus, the (bnml x fctrl) layout of P is more cache-friendly
-            if (revlex_ptr[perm[j * fctrl + i]] != revlex_ptr[j]) {
+            if (revlex_ptr[perm[j * fctrl_m1 + i]] != revlex_ptr[j]) {
                 if (revlex_ptr[j] == '*') {
                     return false;
                 }
@@ -42,10 +42,10 @@ class Node {
     Node(const Matroid* M);
     Node(const Node& other);
 
-    bool insert_plane(const int& p0);
-    void remove_plane(const int& p0);
-    int select_plane();
-    vector<int> planes() const;
+    bool insert_plane(const size_t& p0);
+    void remove_plane(const size_t& p0);
+    size_t select_plane();
+    vector<size_t> planes() const;
 };
 
 vector<Matroid> get_canonical_extensions(const Matroid& M);

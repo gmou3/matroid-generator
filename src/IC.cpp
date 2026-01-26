@@ -11,23 +11,19 @@
 using namespace std;
 
 int num_threads;
-bool to_file;
-vector<string> f;  // file names for each thread
 
-vector<Matroid> IC(int n, int r, bool top_level = true) {
+vector<Matroid> IC(size_t n, size_t r, bool top_level = true) {
     // Base cases
-    if (r < 0 || n < r) {
+    if (n < r) {
         return {};
-    }
-    else if (r == 0 || n == r) {
+    } else if (r == 0 || n == r) {
         Matroid M(n, r, "*");
-        if (top_level)
-            output_matroid(M, to_file, f[0], 0);
+        if (top_level) output_matroid(M, 0);
         return {M};
     }
 
     if (top_level) {
-        P.resize(binomial(n, r) * factorial(n));
+        P.resize(binomial(n, r) * (factorial(n) - 1));
         index_to_set.resize(binomial(n, r));
         index_to_set_rm1.resize(binomial(n - 1, r - 1));
     }
@@ -52,7 +48,7 @@ vector<Matroid> IC(int n, int r, bool top_level = true) {
             // Iterate over all linear subclasses without taboo hyperplanes
             for (const Matroid& M_ext : M.canonical_extensions()) {
                 if (top_level)
-                    output_matroid(M_ext, to_file, f[omp_get_thread_num()], i);
+                    output_matroid(M_ext, i);
                 else
                     local_matroids[i].push_back(M_ext);
             }
@@ -67,8 +63,7 @@ vector<Matroid> IC(int n, int r, bool top_level = true) {
     for (const Matroid& M : IC_nm1_rm1) {
         Matroid M_ext = extend_matroid_coloop(M);
         if (top_level)
-            output_matroid(M_ext, to_file, f[num_threads - 1],
-                           IC_nm1.size());
+            output_matroid(M_ext, IC_nm1.size());
         else
             matroids.push_back(M_ext);
     }
@@ -83,8 +78,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    int n = stoi(argv[1]);
-    int r = stoi(argv[2]);
+    size_t n = stoul(argv[1]);
+    size_t r = stoul(argv[2]);
     num_threads = 1;
     to_file = false;
     if (argc >= 4) {
@@ -99,12 +94,12 @@ int main(int argc, char* argv[]) {
         to_file = true;
     }
 
-    if (to_file) f = open_files(n, r, num_threads);
+    if (to_file) open_files(n, r, num_threads);
 
     // Main IC call
     IC(n, r);
 
-    if (to_file) mergesort_and_delete(f);
+    if (to_file) merge_files();
 
     return 0;
 }
