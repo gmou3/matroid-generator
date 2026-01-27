@@ -23,7 +23,9 @@ vector<Matroid> IC(size_t n, size_t r, bool top_level = true) {
     }
 
     if (top_level) {
-        P.resize(binomial(n, r) * (factorial(n) - 1));
+        P.resize(factorial(n) - 1);
+        P_revlex_to.resize(n * (n - 1) / 2 * binomial(n - 2, r - 1));
+        P_revlex.resize(n * (n - 1) / 2 * binomial(n - 2, r - 1));
         index_to_set.resize(binomial(n, r));
         index_to_set_rm1.resize(binomial(n - 1, r - 1));
     }

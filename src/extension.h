@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <bitset>
 #include <unordered_map>
 #include <unordered_set>
@@ -13,17 +14,21 @@ using namespace std;
 // Check if matroid is canonical
 inline bool is_canonical(const string& revlex) {
     const char* revlex_ptr = revlex.data();
-    const unsigned char* perm = P.data();
+    vector<char> current(revlex.begin(), revlex.end());
+    char* current_ptr = current.data();
+
     for (size_t i = 0; i < fctrl_m1; ++i) {
-        for (size_t j = 0; j < bnml; ++j) {
-            // This inner loop typically breaks very fast (<3 iterations)
-            // Thus, the (bnml x fctrl) layout of P is more cache-friendly
-            if (revlex_ptr[perm[j * fctrl_m1 + i]] != revlex_ptr[j]) {
-                if (revlex_ptr[j] == '*') {
-                    return false;
-                }
-                break;
-            }
+        const size_t offset = P[i] * bnml_nm2_rm1;
+        const unsigned char* perm_to = &P_revlex_to[offset];
+        const unsigned char* perm = &P_revlex[offset];
+
+        for (size_t j = 0; j < bnml_nm2_rm1; ++j) {
+            swap(current_ptr[perm_to[j]], current_ptr[perm[j]]);
+        }
+
+        if (lexicographical_compare(revlex_ptr, revlex_ptr + bnml, current_ptr,
+                                    current_ptr + bnml)) {
+            return false;
         }
     }
     return true;
