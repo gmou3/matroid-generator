@@ -130,7 +130,7 @@ bool dfs_search(Node& node, vector<Matroid>& canonical_extensions) {
         // No more free planes - this is a complete linear subclass
         string M_ext =
             node.M->revlex + extend_matroid_LS(*node.M, node.planes());
-        if (is_canonical(M_ext)) {
+        if (is_canonical(M_ext, node.M->r)) {
             canonical_extensions.push_back(
                 Matroid(node.M->n + 1, node.M->r, M_ext));
             return true;
