@@ -116,7 +116,8 @@ string extend_matroid_LS(const Matroid& M,
     // Mark appropriate positions with '*'
     for (bitset<N> target_set : target_sets) {
         target_set.set(M.n);
-        size_t index = set_to_index[target_set] - bnml_nm1;  // - C(n - 1, r)
+        size_t index =
+            set_to_index[target_set.to_ulong()] - bnml_nm1;  // - C(n - 1, r)
         ext_string[index] = '*';
     }
 
@@ -130,7 +131,7 @@ bool dfs_search(Node& node, vector<Matroid>& canonical_extensions) {
         // No more free planes - this is a complete linear subclass
         string M_ext =
             node.M->revlex + extend_matroid_LS(*node.M, node.planes());
-        if (is_canonical(M_ext)) {
+        if (is_canonical(M_ext, node.M->n + 1)) {
             canonical_extensions.push_back(
                 Matroid(node.M->n + 1, node.M->r, M_ext));
             return true;
