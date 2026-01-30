@@ -12,11 +12,12 @@ using namespace std;
 constexpr size_t N = 16;     // maximum number of elements
 constexpr size_t N_H = 256;  // maximum number of hyperplanes
 
-inline size_t fctrl_m1;      // n! - 1
 inline size_t bnml;          // C(n, r)
 inline size_t bnml_nm1;      // C(n - 1, r)
 inline size_t bnml_nm1_rm1;  // C(n - 1, r - 1)
 
+inline vector<unsigned char> P;
+inline vector<size_t> f;           // factorials
 inline vector<unsigned char> C_r;  // binomials choose r (shifted by one)
 
 inline unsigned char set_to_index[65536];  // set from C([n], r) to index
@@ -99,11 +100,14 @@ inline size_t binomial(size_t n, size_t k) {
 }
 
 inline void initialize_combinatorics(size_t n, size_t r) {
-    // Initialize factorial and binomial coefficients
-    fctrl_m1 = factorial(n) - 1;
+    // Initialize binomial coefficients
     bnml = binomial(n, r);
     bnml_nm1 = binomial(n - 1, r);
     bnml_nm1_rm1 = binomial(n - 1, r - 1);
+    C_r[0] = 0;
+    for (size_t i = 0; i <= n; ++i) {
+        C_r[i + 1] = static_cast<unsigned char>(binomial(i, r));
+    }
 
     // Initialize index-to-set mappings
     vector<size_t> range_n(n), range_nm1(n - 1);
@@ -133,8 +137,24 @@ inline void initialize_combinatorics(size_t n, size_t r) {
     }
     sort(R.begin(), R.end(), RevLexComparator<N>());
 
-    C_r[0] = 0;
-    for (size_t i = 0; i <= n; ++i) {
-        C_r[i + 1] = static_cast<unsigned char>(binomial(i, r));
+    // Initialize factorial array
+    for (size_t i = 1; i <= n; ++i) {
+        f[i] = factorial(i);
+    }
+
+    // Fill permutation array P
+    // The (bnml x f[n]) layout is more cache-friendly
+    // See the function `dfs_canonical` for an explanation
+    vector<vector<size_t>> perms = permutations(range_n);
+    for (size_t i = 0; i < f[n]; ++i) {
+        for (size_t j = 0; j < bnml; ++j) {
+            bitset<N> transformed_set;
+            for (size_t k = 0; k < n; ++k) {
+                if (index_to_set[j][k]) {
+                    transformed_set.set(perms[i][k]);
+                }
+            }
+            P[j * f[n] + i] = set_to_index[transformed_set.to_ulong()];
+        }
     }
 }
