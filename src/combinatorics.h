@@ -17,8 +17,8 @@ inline size_t bnml_nm1;      // C(n - 1, r)
 inline size_t bnml_nm1_rm1;  // C(n - 1, r - 1)
 
 inline vector<unsigned char> P;
-inline vector<size_t> f;           // factorials
-inline vector<unsigned char> C_r;  // binomials choose r (shifted by one)
+inline vector<size_t> f;           // factorials (shifted by one)
+inline vector<unsigned char> C_r;  // binomials choose r (reversed)
 
 inline unsigned char set_to_index[65536];  // set from C([n], r) to index
 inline vector<bitset<N>> index_to_set;     // index to set from C([n], r)
@@ -104,9 +104,9 @@ inline void initialize_combinatorics(size_t n, size_t r) {
     bnml = binomial(n, r);
     bnml_nm1 = binomial(n - 1, r);
     bnml_nm1_rm1 = binomial(n - 1, r - 1);
-    C_r[0] = 0;
+    C_r[n + 1] = 0;
     for (size_t i = 0; i <= n; ++i) {
-        C_r[i + 1] = static_cast<unsigned char>(binomial(i, r));
+        C_r[i] = static_cast<unsigned char>(binomial(n - i, r));
     }
 
     // Initialize index-to-set mappings
@@ -139,14 +139,12 @@ inline void initialize_combinatorics(size_t n, size_t r) {
 
     // Initialize factorial array
     for (size_t i = 1; i <= n; ++i) {
-        f[i] = factorial(i);
+        f[i] = factorial(i - 1);
     }
 
     // Fill permutation array P
-    // The (bnml x f[n]) layout is more cache-friendly
-    // See the function `dfs_canonical` for an explanation
     vector<vector<size_t>> perms = permutations(range_n);
-    for (size_t i = 0; i < f[n]; ++i) {
+    for (size_t i = 0; i < factorial(n); ++i) {
         for (size_t j = 0; j < bnml; ++j) {
             bitset<N> transformed_set;
             for (size_t k = 0; k < n; ++k) {
@@ -154,7 +152,7 @@ inline void initialize_combinatorics(size_t n, size_t r) {
                     transformed_set.set(perms[i][k]);
                 }
             }
-            P[j * f[n] + i] = set_to_index[transformed_set.to_ulong()];
+            P[i * bnml + j] = set_to_index[transformed_set.to_ulong()];
         }
     }
 }

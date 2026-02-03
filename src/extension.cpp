@@ -93,7 +93,7 @@ vector<size_t> Node::planes() const {
 string extend_matroid_LS(const Matroid& M,
                          const vector<size_t>& linear_subclass) {
     // (r - 1)-sets whose extensions with n - 1 are to be marked '*'
-    unordered_set<bitset<N>> target_sets;
+    vector<bitset<N>> target_sets;
 
     // Iterate over independent (r - 1)-sets and add to target_sets if they
     // aren't a subset of a hyperplane
@@ -106,7 +106,7 @@ string extend_matroid_LS(const Matroid& M,
             }
         }
         if (flag) {
-            target_sets.insert(I);
+            target_sets.push_back(I);
         }
     }
 
@@ -141,13 +141,13 @@ bool dfs_search(Node& node, vector<Matroid>& canonical_extensions) {
 
     // Exclude plane p (continue with remaining planes)
     Node exclude_node(node);
-    exclude_node.remove_plane((size_t)p);
+    exclude_node.remove_plane(static_cast<size_t>(p));
     bool exclusion_success = dfs_search(exclude_node, canonical_extensions);
 
     if (exclusion_success) {
         // Try including plane p
         Node include_node(node);
-        if (include_node.insert_plane((size_t)p)) {
+        if (include_node.insert_plane(static_cast<size_t>(p))) {
             dfs_search(include_node, canonical_extensions);
         }
     }

@@ -11,16 +11,16 @@
 
 using namespace std;
 
-inline bool dfs_canonical(const char* revlex, size_t* sigma,
-                          unsigned char* used, size_t pos, size_t n,
-                          size_t perm_id) {
-    // sigma is viewed inversely (sigma[k] becomes k)
-    // Check new determinable sets from partial sigma
-    // Loop through positions C(pos - 1, r) to C(pos, r)
-    for (size_t j = C_r[pos]; j < C_r[pos + 1]; ++j) {
-        // This inner loop typically breaks very fast (<3 iterations)
-        // Thus, the (bnml x f[n]) layout of P is more cache-friendly
-        if (revlex[P[j * f[n] + perm_id]] != revlex[j]) {
+inline bool dfs_canonical(const char* revlex, const size_t unset,
+                          const size_t perm_id) {
+    // The variable `unset` stores the number of undetermined positions at the
+    // end of the current partial permutation sigma. sigma is viewed inversely
+    // (sigma[k] becomes k).
+
+    // Check new determinable sets from partial sigma:
+    // Loop through positions C(n - unset - 1, r) to C(n - unset, r).
+    for (size_t j = C_r[unset + 1]; j < C_r[unset]; ++j) {
+        if (revlex[P[perm_id * bnml + j]] != revlex[j]) {
             if (revlex[j] == '*') {
                 return false;  // Not canonical
             }
@@ -29,25 +29,16 @@ inline bool dfs_canonical(const char* revlex, size_t* sigma,
     }
 
     // Complete sigma checked
-    if (pos == n) {
+    if (unset == 0) {
         return true;
     }
 
     // Build one more position in partial sigma
-    size_t smaller = 0;
-    for (size_t i = 0; i < n; ++i) {
-        if (used[i]) continue;
-
-        sigma[pos] = i;
-        used[i] = 1;
-
-        if (!dfs_canonical(revlex, sigma, used, pos + 1, n,
-                           perm_id + smaller * f[n - 1 - pos])) {
+    for (size_t i = 0; i < unset; ++i) {
+        // Increment perm_id by (unset - 1)! as we skip a smaller element
+        if (!dfs_canonical(revlex, unset - 1, perm_id + i * f[unset])) {
             return false;
         }
-
-        used[i] = 0;
-        smaller++;
     }
 
     return true;
@@ -61,11 +52,8 @@ inline bool is_canonical(const string& revlex, size_t n) {
         return true;
     }
 
-    // Main check: traverse permutations using DFS
-    size_t sigma[N];
-    unsigned char used[N] = {0};
-
-    return dfs_canonical(revlex.data(), sigma, used, 0, n, 0);
+    // Main check: traverse (partial) permutations using DFS
+    return dfs_canonical(revlex.data(), n, 0);
 }
 
 class Node {
