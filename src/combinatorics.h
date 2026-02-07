@@ -9,8 +9,8 @@
 
 using namespace std;
 
-constexpr size_t N = 16;     // maximum number of elements
-constexpr size_t N_H = 256;  // maximum number of hyperplanes
+constexpr size_t N = 16;      // maximum number of elements
+constexpr size_t N_H = 1024;  // maximum number of hyperplanes
 
 inline size_t fctrl_m1;      // n! - 1
 inline size_t bnml;          // C(n, r)
