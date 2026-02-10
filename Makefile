@@ -1,5 +1,7 @@
 CXX := g++
 CXXFLAGS := -O2 -march=native -fopenmp -Wall -Wextra -Wpedantic -Wconversion
+LDFLAGS := -llzma
+
 SHELL_CMD := bash
 
 SRC_DIR := src
@@ -13,7 +15,7 @@ HEADERS := $(wildcard $(SRC_DIR)/*.h)
 all: $(TARGET)
 
 $(TARGET): $(SRCS) $(HEADERS) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
