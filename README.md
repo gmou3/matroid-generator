@@ -17,10 +17,11 @@ Tip: use `make test` to execute the test suite.
 
 To generate all (canonical) matroids over `n` elements of rank `r`, run
 ```bash
-./build/IC <n> <r> [<num_threads>] [--file]
+./build/IC <n> <r> [<num_threads>] [--file] [--compressed-file]
 ```
 - `num_threads` (default: 1) — the number of threads to use for parallel computation
 - `--file` (optional) — output will be written to the file `output/n__r__` (instead of `stdout`)
+- `--compressed-file` (optional) — output will be written to the XZ compressed file `output/n__r__.xz`
 
 WARNING: Memory usage scales with `n` and `r`.
 

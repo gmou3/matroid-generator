@@ -10,7 +10,7 @@
 
 using namespace std;
 
-int num_threads;
+int num_threads = 1;
 
 vector<Matroid> IC(size_t n, size_t r, bool top_level = true) {
     // Base cases
@@ -74,34 +74,33 @@ vector<Matroid> IC(size_t n, size_t r, bool top_level = true) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 3 || argc > 5) {
-        cout << "Usage: " << argv[0] << " <n> <r> [<num_threads>] [--file]"
-             << endl;
+    if (argc < 3 || argc > 6) {
+        cout << "Usage: " << argv[0]
+             << " <n> <r> [<num_threads>] [--file] [--compressed-file]" << endl;
         return 1;
     }
 
+    // Parse arguments
     size_t n = stoul(argv[1]);
     size_t r = stoul(argv[2]);
-    num_threads = 1;
-    to_file = false;
-    if (argc >= 4) {
-        if (string(argv[3]) != "--file") {
-            num_threads = stoi(argv[3]);
-        } else {
+    for (int i = 3; i < argc; ++i) {
+        if (string(argv[i]) == "--file") {
             to_file = true;
+        } else if (string(argv[i]) == "--compressed-file") {
+            to_file = true;
+            use_compression = true;
+        } else {
+            num_threads = stoi(argv[i]);
         }
     }
     omp_set_num_threads(num_threads);
-    if (argc == 5 && string(argv[4]) == "--file") {
-        to_file = true;
-    }
 
     if (to_file) open_files(n, r, num_threads);
 
     // Main IC call
     IC(n, r);
 
-    if (to_file) merge_files();
+    if (to_file) merge_files(num_threads);
 
     return 0;
 }

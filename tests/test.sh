@@ -3,7 +3,8 @@
 test_dir=$(dirname "$0")
 pushd "$test_dir" >/dev/null
 
-if [ ! -f "../build/IC" ]; then
+executable="../build/IC"
+if [ ! -f $executable ]; then
     echo "Error: IC executable not found"
     exit 1
 fi
@@ -15,17 +16,25 @@ for ((n = 0; n <= N; n++)); do
     for ((r = 0; r <= n; r++)); do
         # Test serial version
         expected=$(< "expected/n0${n}r0${r}")
-        output=$("../build/IC" $n $r)
+        output=$($executable $n $r)
         if [ "$expected" != "$output" ]; then
-            echo "Test failed for n=$n, r=$r (serial)"
+            echo "Test failed: ($n, $r)"
             flag=false
         fi
 
         # Test parallel version with file output
-        "../build/IC" $n $r 4 --file
+        $executable $n $r 2 --file
         output=$(< "output/n0${n}r0${r}")
         if [ "$expected" != "$output" ]; then
-            echo "Test failed for n=$n, r=$r (parallel with file output)"
+            echo "Test failed: ($n, $r, 2, --file)"
+            flag=false
+        fi
+
+        # Test parallel version with compressed file output
+        $executable $n $r 4 --compressed-file
+        output=$(xzcat "output/n0${n}r0${r}.xz")
+        if [ "$expected" != "$output" ]; then
+            echo "Test failed: ($n, $r, 4, --compressed-file)"
             flag=false
         fi
     done
