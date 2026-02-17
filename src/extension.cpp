@@ -7,6 +7,12 @@
 
 using namespace std;
 
+size_t pop_back(vector<size_t>& v) {
+    size_t val = v.back();
+    v.pop_back();
+    return val;
+}
+
 Node::Node(const Matroid* M) : M(M) {
     p_free.reset();
     for (size_t i = 0; i < M->hyperplanes.size(); ++i) {
@@ -28,18 +34,14 @@ Node::Node(const Node& other)
       M(other.M) {}
 
 bool Node::insert_plane(const size_t& p) {
-    p_free.reset(p);
-    p_in.set(p);
-
     vector<size_t> p_stack = {p};
     vector<size_t> l_stack;
-
+    p_free.reset(p);
+    p_in.set(p);
     while (!p_stack.empty()) {
         // Process hyperplanes
         while (!p_stack.empty()) {
-            size_t p = p_stack.back();
-            p_stack.pop_back();
-
+            size_t p = pop_back(p_stack);
             for (size_t l : M->planes_to_lines[p]) {
                 if (l0[l]) {
                     l0.reset(l);
@@ -50,21 +52,17 @@ bool Node::insert_plane(const size_t& p) {
                 }
             }
         }
-
         // Process hyperlines
         while (!l_stack.empty()) {
-            size_t l = l_stack.back();
-            l_stack.pop_back();
-
+            size_t l = pop_back(l_stack);
             for (size_t pl : M->lines_to_planes[l]) {
                 if (p_in[pl]) continue;
-
                 if (p_free[pl]) {
                     p_free.reset(pl);
                     p_in.set(pl);
                     p_stack.push_back(pl);
                 } else {
-                    return false;  // forbidden
+                    return false;
                 }
             }
         }
@@ -72,7 +70,32 @@ bool Node::insert_plane(const size_t& p) {
     return true;
 }
 
-void Node::remove_plane(const size_t& p) { p_free.reset(p); }
+void Node::remove_plane(const size_t& p) {
+    vector<size_t> p_stack = {p};
+    vector<size_t> l_stack;
+    p_free.reset(p);
+    while (!p_stack.empty()) {
+        // Process hyperplanes
+        while (!p_stack.empty()) {
+            size_t p = pop_back(p_stack);
+            for (size_t l : M->planes_to_lines[p]) {
+                if (l1[l]) {
+                    l_stack.push_back(l);
+                }
+            }
+        }
+        // Process hyperlines
+        while (!l_stack.empty()) {
+            size_t l = pop_back(l_stack);
+            for (size_t pl : M->lines_to_planes[l]) {
+                if (p_free[pl]) {
+                    p_free.reset(pl);
+                    p_stack.push_back(pl);
+                }
+            }
+        }
+    }
+}
 
 size_t Node::select_plane() {
     // Find first free plane
