@@ -16,8 +16,8 @@ size_t Matroid::rank(const bitset<N>& F) const {
 
     size_t F_cnt = F.count();
     size_t max_rank = 0;
-    for (size_t i = 0; i < revlex.length(); ++i) {
-        if (revlex[i] == '*') {
+    for (size_t i = 0; i < colex.length(); ++i) {
+        if (colex[i] == '*') {
             size_t cnt = (F & index_to_set[i]).count();
             if (cnt > max_rank) {
                 max_rank = cnt;
@@ -55,8 +55,8 @@ bitset<N> Matroid::closure(const bitset<N>& F) const {
 
 // Independent (r - 1)-sets
 void Matroid::init_ind_sets_rm1() const {
-    for (size_t i = 0; i < revlex.size(); ++i) {
-        if (revlex[i] == '*') {
+    for (size_t i = 0; i < colex.size(); ++i) {
+        if (colex[i] == '*') {
             for (const bitset<N>& S :
                  generate_minus_1_subsets(index_to_set[i], n)) {
                 ind_sets_rm1.insert(S);
@@ -67,9 +67,9 @@ void Matroid::init_ind_sets_rm1() const {
 
 // Flats of rank r - 1
 void Matroid::init_hyperplanes() const {
-    // Hyperplanes are ordered by the revlex order of their
-    // revlex-smallest independent (r - 1)-set.
-    // This ensures the lexicographic order of the final output.
+    // Hyperplanes are ordered by the colex order of their colex-smallest
+    // independent (r - 1)-set. This ensures the lexicographic order of the
+    // final output.
     unordered_set<bitset<N>> H_unordered;
     for (const bitset<N>& I : ind_sets_rm1) {
         H_unordered.insert(closure(I));

@@ -19,8 +19,8 @@ class Matroid {
    public:
     size_t n;
     size_t r;
-    string revlex;
-    mutable set<bitset<N>, RevLexComparator<N>> ind_sets_rm1;
+    string colex;
+    mutable set<bitset<N>, CoLexComparator<N>> ind_sets_rm1;
     mutable vector<bitset<N>> hyperplanes;
     mutable unordered_set<bitset<N>> taboo_hyperplanes;
     mutable vector<bitset<N>> hyperlines;
@@ -28,8 +28,8 @@ class Matroid {
     mutable vector<vector<size_t>> lines_to_planes;
     mutable unordered_map<bitset<N>, size_t> hyperplanes_index;
 
-    Matroid(const size_t& n, const size_t& r, const string& revlex)
-        : n(n), r(r), revlex(revlex) {}
+    Matroid(const size_t& n, const size_t& r, const string& colex)
+        : n(n), r(r), colex(colex) {}
 
     size_t rank(const bitset<N>& F) const;
     bitset<N> closure(const bitset<N>& F) const;

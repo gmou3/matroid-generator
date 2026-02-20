@@ -10,8 +10,8 @@
 
 using namespace std;
 
-inline bool dfs_canonical(const char* revlex, size_t* sigma,
-                          unsigned char* used, size_t pos, size_t n) {
+inline bool dfs_canonical(const char* colex, size_t* sigma, unsigned char* used,
+                          size_t pos, size_t n) {
     // sigma is viewed inversely (sigma[k] becomes k)
     // Check new determinable sets from partial sigma
     // Loop through positions C(pos - 1, r) to C(pos, r)
@@ -28,8 +28,8 @@ inline bool dfs_canonical(const char* revlex, size_t* sigma,
         const unsigned char& permuted_index =
             set_to_index[permuted_subset.to_ulong()];
 
-        if (revlex[permuted_index] != revlex[j]) {
-            if (revlex[j] == '*') {
+        if (colex[permuted_index] != colex[j]) {
+            if (colex[j] == '*') {
                 return false;  // Not canonical
             }
             return true;  // Prune
@@ -48,7 +48,7 @@ inline bool dfs_canonical(const char* revlex, size_t* sigma,
         sigma[pos] = i;
         used[i] = 1;
 
-        if (!dfs_canonical(revlex, sigma, used, pos + 1, n)) {
+        if (!dfs_canonical(colex, sigma, used, pos + 1, n)) {
             return false;
         }
 
@@ -58,10 +58,10 @@ inline bool dfs_canonical(const char* revlex, size_t* sigma,
     return true;
 }
 
-inline bool is_canonical(const string& revlex, size_t n) {
-    // Fast check: check if revlex has all its 0s on the front
-    size_t first_star = revlex.find('*');
-    size_t last_zero = revlex.rfind('0');
+inline bool is_canonical(const string& colex, size_t n) {
+    // Fast check: check if colex has all its 0s on the front
+    size_t first_star = colex.find('*');
+    size_t last_zero = colex.rfind('0');
     if (last_zero == string::npos || last_zero < first_star) {
         return true;
     }
@@ -70,7 +70,7 @@ inline bool is_canonical(const string& revlex, size_t n) {
     size_t sigma[N];
     unsigned char used[N] = {0};
 
-    return dfs_canonical(revlex.data(), sigma, used, 0, n);
+    return dfs_canonical(colex.data(), sigma, used, 0, n);
 }
 
 class Node {
