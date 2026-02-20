@@ -153,7 +153,7 @@ bool dfs_search(Node& node, vector<Matroid>& canonical_extensions) {
     if (p == node.M->hyperplanes.size()) {
         // No more free planes - this is a complete linear subclass
         string M_ext =
-            node.M->revlex + extend_matroid_LS(*node.M, node.planes());
+            node.M->colex + extend_matroid_LS(*node.M, node.planes());
         if (is_canonical(M_ext, node.M->n + 1)) {
             canonical_extensions.push_back(
                 Matroid(node.M->n + 1, node.M->r, M_ext));
@@ -206,12 +206,12 @@ vector<Matroid> get_canonical_extensions(const Matroid& M) {
 }
 
 Matroid extend_matroid_coloop(const Matroid& M) {
-    string revlex(bnml, '0');
+    string colex(bnml, '0');
 
     // C(n, r) = C(n - 1, r - 1) + C(n - 1, r)
     for (size_t i = 0; i < bnml_nm1_rm1; ++i) {
-        revlex[bnml_nm1 + i] = M.revlex[i];
+        colex[bnml_nm1 + i] = M.colex[i];
     }
 
-    return Matroid(M.n + 1, M.r + 1, revlex);
+    return Matroid(M.n + 1, M.r + 1, colex);
 }

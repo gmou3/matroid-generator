@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <bitset>
-#include <numeric>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -27,7 +26,7 @@ inline vector<bitset<N>>
 inline vector<bitset<N>> R;  // for taboo_hyperplanes calculation
 
 template <size_t N>
-struct RevLexComparator {
+struct CoLexComparator {
     bool operator()(const bitset<N>& a, const bitset<N>& b) const {
         for (int i = N - 1; i >= 0; --i) {
             if (a[i] != b[i]) {
@@ -39,33 +38,28 @@ struct RevLexComparator {
 };
 
 template <size_t N>
-vector<bitset<N>> combinations(const vector<size_t>& items, size_t r) {
-    vector<bitset<N>> result;
-    vector<bool> selector(items.size());
-    fill(selector.end() - r, selector.end(), true);
-
-    do {
-        bitset<N> combination;
-        for (size_t i = 0; i < items.size(); ++i) {
-            if (selector[i]) {
-                combination.set(i);
-            }
-        }
-        result.push_back(combination);
-    } while (next_permutation(selector.begin(), selector.end()));
-
+vector<bitset<N>> combinations(size_t n, size_t r) {
+    // Produce C([n], r) in colex order
+    if (r == 0 || n == r) {
+        bitset<N> b;
+        for (size_t i = 0; i < r; ++i) b.set(i);
+        return {b};
+    }
+    vector<bitset<N>> result = combinations<N>(n - 1, r);
+    for (bitset<N> b : combinations<N>(n - 1, r - 1)) {
+        b.set(n - 1);
+        result.push_back(b);
+    }
     return result;
 }
 
-inline vector<vector<size_t>> permutations(const vector<size_t>& items) {
+inline vector<vector<size_t>> permutations(size_t n) {
     vector<vector<size_t>> result;
-    vector<size_t> perm = items;
-    sort(perm.begin(), perm.end());
-
+    vector<size_t> perm(n);
+    for (size_t i = 0; i < n; ++i) perm[i] = i;
     do {
         result.push_back(perm);
     } while (next_permutation(perm.begin(), perm.end()));
-
     return result;
 }
 
@@ -110,16 +104,8 @@ inline void initialize_combinatorics(size_t n, size_t r) {
     }
 
     // Initialize index-to-set mappings
-    vector<size_t> range_n(n), range_nm1(n - 1);
-    iota(range_n.begin(), range_n.end(),
-         0);  // Fill with [n] = {0, 1, ..., n - 1}
-    iota(range_nm1.begin(), range_nm1.end(),
-         0);  // Fill with [n - 1] = {0, 1, ..., n - 2}
-    index_to_set = combinations<N>(range_n, r);
-    index_to_set_rm1 = combinations<N>(range_nm1, r - 1);
-    sort(index_to_set.begin(), index_to_set.end(), RevLexComparator<N>());
-    sort(index_to_set_rm1.begin(), index_to_set_rm1.end(),
-         RevLexComparator<N>());
+    index_to_set = combinations<N>(n, r);
+    index_to_set_rm1 = combinations<N>(n - 1, r - 1);
 
     // Initialize set-to-index mapping
     for (size_t i = 0; i < bnml; ++i) {
@@ -129,13 +115,12 @@ inline void initialize_combinatorics(size_t n, size_t r) {
 
     // Initialize R: combos from C([n - 1], r) with n - 2
     R.clear();
-    vector<bitset<N>> combos = combinations<N>(range_nm1, r);
+    vector<bitset<N>> combos = combinations<N>(n - 1, r);
     for (const bitset<N>& combo : combos) {
         if (combo[n - 2]) {
             R.push_back(combo);
         }
     }
-    sort(R.begin(), R.end(), RevLexComparator<N>());
 
     // Initialize factorial array
     for (size_t i = 1; i <= n; ++i) {
@@ -143,7 +128,7 @@ inline void initialize_combinatorics(size_t n, size_t r) {
     }
 
     // Fill permutation array P
-    vector<vector<size_t>> perms = permutations(range_n);
+    vector<vector<size_t>> perms = permutations(n);
     for (size_t i = 0; i < factorial(n); ++i) {
         for (size_t j = 0; j < bnml; ++j) {
             bitset<N> transformed_set;

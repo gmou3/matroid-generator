@@ -22,7 +22,7 @@ vector<unique_ptr<XZWriter>> xz_writers;
 
 struct Line {
     size_t file_index;
-    string revlex;
+    string colex;
     size_t line_index;
 
     bool operator>(const Line& other) const {
@@ -68,16 +68,16 @@ void open_files(size_t n, size_t r, int threads) {
 inline void output_matroid(const Matroid& M, const size_t& index) {
     if (to_file) {
         if (use_compression) {
-            xz_writers[omp_get_thread_num()]->write(M.revlex + " " +
+            xz_writers[omp_get_thread_num()]->write(M.colex + " " +
                                                     to_string(index) + "\n");
         } else {
             ofstream file(filenames[omp_get_thread_num()],
                           ios::binary | ios::app);
-            file << M.revlex << " " << index << "\n";
+            file << M.colex << " " << index << "\n";
         }
     } else {
 #pragma omp critical(io)
-        cout << M.revlex << endl;
+        cout << M.colex << endl;
     }
 }
 
@@ -131,10 +131,10 @@ inline void merge_files(int threads) {
 
         if (success) {
             stringstream ss(line);
-            string revlex;
+            string colex;
             size_t index;
-            ss >> revlex >> index;  // Split the line into revlex and index
-            pq.push({i, revlex, index});
+            ss >> colex >> index;  // Split the line into colex and index
+            pq.push({i, colex, index});
         }
     }
 
@@ -145,9 +145,9 @@ inline void merge_files(int threads) {
 
         // Write the current line to the output file
         if (use_compression) {
-            xz_out->write(current.revlex + "\n");
+            xz_out->write(current.colex + "\n");
         } else {
-            out << current.revlex << endl;
+            out << current.colex << endl;
         }
 
         // Read the next line from the file that provided the current line
@@ -159,10 +159,10 @@ inline void merge_files(int threads) {
 
         if (success) {
             stringstream ss(line);
-            string revlex;
+            string colex;
             size_t index;
-            ss >> revlex >> index;  // Split the line into revlex and index
-            pq.push({current.file_index, revlex, index});
+            ss >> colex >> index;  // Split the line into colex and index
+            pq.push({current.file_index, colex, index});
         }
     }
 
