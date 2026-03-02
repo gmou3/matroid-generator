@@ -164,13 +164,13 @@ bool dfs_search(Node& node, vector<Matroid>& canonical_extensions) {
 
     // Exclude plane p (continue with remaining planes)
     Node exclude_node(node);
-    exclude_node.remove_plane(static_cast<size_t>(p));
+    exclude_node.remove_plane(p);
     bool exclusion_success = dfs_search(exclude_node, canonical_extensions);
 
     if (exclusion_success) {
         // Try including plane p
         Node include_node(node);
-        if (include_node.insert_plane(static_cast<size_t>(p))) {
+        if (include_node.insert_plane(p)) {
             dfs_search(include_node, canonical_extensions);
         }
     }

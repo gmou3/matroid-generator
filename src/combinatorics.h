@@ -16,11 +16,11 @@ inline size_t bnml_nm1;      // C(n - 1, r)
 inline size_t bnml_nm1_rm1;  // C(n - 1, r - 1)
 
 inline vector<unsigned char> P;
-inline vector<size_t> f;           // factorials (shifted by one)
-inline vector<unsigned char> C_r;  // binomials choose r (reversed)
+inline vector<size_t> f;    // factorials (shifted by one)
+inline vector<size_t> C_r;  // binomials choose r (reversed)
 
-inline unsigned char set_to_index[65536];  // set from C([n], r) to index
-inline vector<bitset<N>> index_to_set;     // index to set from C([n], r)
+inline unsigned char set_to_index[1 << N];  // set from C([n], r) to index
+inline vector<bitset<N>> index_to_set;      // index to set from C([n], r)
 inline vector<bitset<N>>
     index_to_set_rm1;        // index to set from C([n - 1], r - 1)
 inline vector<bitset<N>> R;  // for taboo_hyperplanes calculation
@@ -67,7 +67,6 @@ template <size_t N>
 inline vector<bitset<N>> generate_minus_1_subsets(const bitset<N>& set,
                                                   const size_t& n) {
     unordered_set<bitset<N>> subsets;
-
     for (size_t i = 0; i < n; ++i) {
         if (set[i]) {
             bitset<N> tmp = set;
@@ -75,7 +74,6 @@ inline vector<bitset<N>> generate_minus_1_subsets(const bitset<N>& set,
             subsets.insert(tmp);
         }
     }
-
     return vector<bitset<N>>(subsets.begin(), subsets.end());
 }
 
@@ -108,9 +106,8 @@ inline void initialize_combinatorics(size_t n, size_t r) {
     index_to_set_rm1 = combinations<N>(n - 1, r - 1);
 
     // Initialize set-to-index mapping
-    for (size_t i = 0; i < bnml; ++i) {
-        set_to_index[index_to_set[i].to_ulong()] =
-            static_cast<unsigned char>(i);
+    for (unsigned char i = 0; i < bnml; ++i) {
+        set_to_index[index_to_set[i].to_ulong()] = i;
     }
 
     // Initialize R: combos from C([n - 1], r) with n - 2
