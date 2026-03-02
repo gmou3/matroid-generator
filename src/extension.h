@@ -25,8 +25,7 @@ inline bool dfs_canonical(const char* colex, size_t* sigma, unsigned char* used,
             }
         }
 
-        const unsigned char& permuted_index =
-            set_to_index[permuted_subset.to_ulong()];
+        const size_t& permuted_index = set_to_index[permuted_subset.to_ulong()];
 
         if (colex[permuted_index] != colex[j]) {
             if (colex[j] == '*') {
