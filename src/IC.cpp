@@ -18,14 +18,13 @@ vector<string> IC(size_t n, size_t r, bool top_level = true) {
         return {};
     } else if (r == 0 || n == r) {
         Matroid M(n, r, "*");
-        if (top_level) output_matroid(M, 0);
+        if (top_level) output_matroid(M, 0, 0);
         return {M.colex};
     }
 
     if (top_level) {
         P.resize(factorial(n) * binomial(n, r));
         index_to_set.resize(binomial(n, r));
-        index_to_set_rm1.resize(binomial(n - 1, r - 1));
         f.resize(n + 1);
         C_r.resize(n + 2);
     }
@@ -36,7 +35,7 @@ vector<string> IC(size_t n, size_t r, bool top_level = true) {
 
     // Initialize factorials, binomial coefficients,
     // mappings between indices and sets,
-    // and fill permutation array of size C(n, r) * n!
+    // and fill permutation array of size n! * C(n, r)
     initialize_combinatorics(n, r);
 
     // Process IC_nm1
@@ -44,13 +43,14 @@ vector<string> IC(size_t n, size_t r, bool top_level = true) {
     vector<vector<string>> local_matroids(!top_level ? IC_nm1.size() : 0);
 #pragma omp parallel
     {
+        int tid = omp_get_thread_num();
 #pragma omp for schedule(dynamic, 1) nowait
         for (size_t i = 0; i < IC_nm1.size(); ++i) {
             Matroid M(n - 1, r, IC_nm1[i]);
             // Iterate over all linear subclasses without taboo hyperplanes
             for (const Matroid& M_ext : M.canonical_extensions()) {
                 if (top_level)
-                    output_matroid(M_ext, i);
+                    output_matroid(M_ext, i, tid);
                 else
                     local_matroids[i].push_back(M_ext.colex);
             }
@@ -64,9 +64,9 @@ vector<string> IC(size_t n, size_t r, bool top_level = true) {
     // Process IC_nm1_rm1
     for (const string& colex : IC_nm1_rm1) {
         Matroid M(n - 1, r - 1, colex);
-        Matroid M_ext = extend_matroid_coloop(M);
+        Matroid M_ext = M.coloop_extension();
         if (top_level)
-            output_matroid(M_ext, IC_nm1.size());
+            output_matroid(M_ext, IC_nm1.size(), 0);
         else
             matroids.push_back(M_ext.colex);
     }
@@ -101,7 +101,7 @@ int main(int argc, char* argv[]) {
     // Main IC call
     IC(n, r);
 
-    if (to_file) merge_files(num_threads);
+    if (to_file) merge_files();
 
     return 0;
 }

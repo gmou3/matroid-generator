@@ -21,9 +21,7 @@ inline vector<size_t> C_r;  // binomials choose r (reversed)
 
 inline unsigned char set_to_index[1 << N];  // set from C([n], r) to index
 inline vector<bitset<N>> index_to_set;      // index to set from C([n], r)
-inline vector<bitset<N>>
-    index_to_set_rm1;        // index to set from C([n - 1], r - 1)
-inline vector<bitset<N>> R;  // for taboo_hyperplanes calculation
+inline vector<bitset<N>> R;                 // for taboo_hyperplanes calculation
 
 template <size_t N>
 struct CoLexComparator {
@@ -92,6 +90,11 @@ inline size_t binomial(size_t n, size_t k) {
 }
 
 inline void initialize_combinatorics(size_t n, size_t r) {
+    // Initialize factorial array
+    for (size_t i = 1; i <= n; ++i) {
+        f[i] = factorial(i - 1);
+    }
+
     // Initialize binomial coefficients
     bnml = binomial(n, r);
     bnml_nm1 = binomial(n - 1, r);
@@ -101,27 +104,10 @@ inline void initialize_combinatorics(size_t n, size_t r) {
         C_r[i] = static_cast<unsigned char>(binomial(n - i, r));
     }
 
-    // Initialize index-to-set mappings
+    // Initialize mappings between indices and sets
     index_to_set = combinations<N>(n, r);
-    index_to_set_rm1 = combinations<N>(n - 1, r - 1);
-
-    // Initialize set-to-index mapping
     for (unsigned char i = 0; i < bnml; ++i) {
         set_to_index[index_to_set[i].to_ulong()] = i;
-    }
-
-    // Initialize R: combos from C([n - 1], r) with n - 2
-    R.clear();
-    vector<bitset<N>> combos = combinations<N>(n - 1, r);
-    for (const bitset<N>& combo : combos) {
-        if (combo[n - 2]) {
-            R.push_back(combo);
-        }
-    }
-
-    // Initialize factorial array
-    for (size_t i = 1; i <= n; ++i) {
-        f[i] = factorial(i - 1);
     }
 
     // Fill permutation array P
@@ -135,6 +121,15 @@ inline void initialize_combinatorics(size_t n, size_t r) {
                 }
             }
             P[i * bnml + j] = set_to_index[transformed_set.to_ulong()];
+        }
+    }
+
+    // Initialize R: combos from C([n - 1], r) with n - 2
+    R.clear();
+    vector<bitset<N>> combos = combinations<N>(n - 1, r);
+    for (const bitset<N>& combo : combos) {
+        if (combo[n - 2]) {
+            R.push_back(combo);
         }
     }
 }

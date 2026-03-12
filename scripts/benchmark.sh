@@ -10,14 +10,9 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   exit 1
 fi
 
-executable="./build/IC"
-n="${1:-8}"
-r="${2:-4}"
-num_threads="${3:-}"
-
 for commit in $(git log --format="%H" 672ac65^..HEAD); do
   git checkout "$commit" --quiet
   git log --oneline -n1
   make --quiet
-  hyperfine "$executable $n $r $num_threads"
+  hyperfine "./build/IC ${*:-8 4}"
 done

@@ -37,5 +37,6 @@ class Matroid {
     void init_hyperplanes() const;
     void init_taboo_hyperplanes(const vector<bitset<N>>& R) const;
     void init_hyperlines() const;
+    Matroid coloop_extension() const;
     vector<Matroid> canonical_extensions() const;
 };

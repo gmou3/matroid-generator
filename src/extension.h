@@ -1,7 +1,6 @@
 #pragma once
 
 #include <bitset>
-#include <cstddef>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
