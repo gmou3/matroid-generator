@@ -23,8 +23,8 @@ To generate all (canonical) matroids over `n` elements of rank `r`, run
   computation
 - `--file` (optional) — output will be written to the file `output/n__r__`
   (instead of `stdout`)
-- `--compressed-file` (optional) — output will be written to the XZ compressed
-  file `output/n__r__.xz`
+- `--compressed-file` (optional) — output will be written to the SZ compressed
+  file `output/n__r__.sz`. Use `scripts/szcat.sh` to see the contents.
 
 A raw example:
 ```bash

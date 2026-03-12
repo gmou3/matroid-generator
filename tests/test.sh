@@ -32,7 +32,7 @@ for ((n = 0; n <= N; n++)); do
 
         # Test parallel version with compressed file output
         $executable $n $r 4 --compressed-file
-        output=$(xzcat "output/n0${n}r0${r}.xz")
+        output=$(../scripts/szcat.sh "output/n0${n}r0${r}.sz")
         if [ "$expected" != "$output" ]; then
             echo "Test failed: ($n, $r, 4, --compressed-file)"
             flag=false

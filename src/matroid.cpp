@@ -148,6 +148,10 @@ void Matroid::init_hyperlines() const {
     }
 }
 
+Matroid Matroid::coloop_extension() const {
+    return extend_matroid_coloop(*this);
+}
+
 vector<Matroid> Matroid::canonical_extensions() const {
     return get_canonical_extensions(*this);
 }
