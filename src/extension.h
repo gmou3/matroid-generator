@@ -52,7 +52,22 @@ inline bool is_canonical(const string& colex) {
     }
 
     // Main check: traverse (partial) permutations using DFS
-    return dfs_canonical(colex.data(), 10, 0);
+    for (size_t r_set_ind = 0; r_set_ind < bnml; ++r_set_ind) {
+        if (colex[r_set_to_j[r_set_ind]] != '0') {
+            continue;
+        }
+        for (size_t i = 0; i < f[6]; ++i) {
+            size_t perm_id = r_set_to_perm_ids[r_set_ind * f[6] + i];
+            size_t tmp_fctrl = f[5];
+            for (size_t j = 0; j < 5; ++j) {
+                if (!dfs_canonical(colex.data(), 4, perm_id + j * tmp_fctrl)) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
 }
 
 inline string extend_matroid_LS(const Matroid& M,

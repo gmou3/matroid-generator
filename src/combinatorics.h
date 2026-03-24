@@ -27,6 +27,9 @@ inline unsigned char set_to_index[1024];  // set from C([n], r) to index
 inline bitset<N> index_to_set[252];       // index to set from C([n], r)
 inline vector<bitset<N>> R;               // for taboo_hyperplanes calculation
 
+inline unsigned char r_set_to_j[252];    // colex position for check
+inline size_t r_set_to_perm_ids[30240];  // all perm_ids, grouped by r_set
+
 template <size_t N>
 struct CoLexComparator {
     bool operator()(const bitset<N>& a, const bitset<N>& b) const {
@@ -105,6 +108,7 @@ inline void initialize_combinatorics() {
 
     // Fill permutation array P
     vector<vector<size_t>> perms = permutations(10);
+    vector<size_t> r_set_counts(bnml, 0);
     for (size_t i = 0; i < factorial(10); ++i) {
         for (size_t j = 0; j < bnml; ++j) {
             bitset<N> transformed_set;
@@ -114,6 +118,26 @@ inline void initialize_combinatorics() {
                 }
             }
             P[i * bnml + j] = set_to_index[transformed_set.to_ulong()];
+        }
+
+        bitset<N> first_r;
+        for (size_t k = 0; k < 5; ++k) {
+            first_r.set(perms[i][k]);
+        }
+        bool rest_sorted = true;
+        for (size_t k = 5; k + 1 < 10; ++k) {
+            if (perms[i][k] > perms[i][k + 1]) {
+                rest_sorted = false;
+                break;
+            }
+        }
+        if (rest_sorted) {
+            size_t r_set = set_to_index[first_r.to_ulong()];
+            size_t ind = r_set_counts[r_set]++;
+            r_set_to_perm_ids[r_set * f[5 + 1] + ind] = i;
+            if (ind == 0) {
+                r_set_to_j[r_set] = P[i * bnml];
+            }
         }
     }
 
