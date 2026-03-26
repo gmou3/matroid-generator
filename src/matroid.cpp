@@ -2,9 +2,9 @@
 
 #include <bitset>
 #include <set>
+#include <vector>
 
 #include "combinatorics.h"
-#include "extension.h"
 
 using namespace std;
 
@@ -146,12 +146,4 @@ void Matroid::init_hyperlines() const {
             cnt++;
         }
     }
-}
-
-Matroid Matroid::coloop_extension() const {
-    return extend_matroid_coloop(*this);
-}
-
-vector<Matroid> Matroid::canonical_extensions() const {
-    return get_canonical_extensions(*this);
 }

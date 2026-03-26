@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -O2 -march=native -Wall -Wextra -Wpedantic -Wconversion
+CXXFLAGS := -O3 -march=native -funroll-loops -Wall -Wextra -Wpedantic -Wconversion
 SHELL_CMD := bash
 SRC_DIR := src
 BUILD_DIR := build

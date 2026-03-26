@@ -4,7 +4,6 @@
 #include <vector>
 
 #include "combinatorics.h"
-#include "extension.h"
 #include "file.h"
 #include "matroid.h"
 
@@ -47,13 +46,13 @@ vector<string> IC(size_t n, size_t r, bool top_level = true) {
 #pragma omp for schedule(dynamic, 1) nowait
         for (size_t i = 0; i < IC_nm1.size(); ++i) {
             Matroid M(n - 1, r, IC_nm1[i]);
-            // Iterate over all linear subclasses without taboo hyperplanes
-            for (const Matroid& M_ext : M.canonical_extensions()) {
+            // Iterate over all canonical extensions
+            M.canonical_extensions([&](Matroid M_ext) {
                 if (top_level)
                     output_matroid(M_ext, i, tid);
                 else
                     local_matroids[i].push_back(M_ext.colex);
-            }
+            });
         }
     }
 

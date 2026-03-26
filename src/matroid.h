@@ -37,6 +37,23 @@ class Matroid {
     void init_hyperplanes() const;
     void init_taboo_hyperplanes(const vector<bitset<N>>& R) const;
     void init_hyperlines() const;
-    Matroid coloop_extension() const;
-    vector<Matroid> canonical_extensions() const;
+
+    Matroid coloop_extension() const {
+        string colex(bnml, '0');
+        // C(n, r) = C(n - 1, r - 1) + C(n - 1, r)
+        for (size_t i = 0; i < bnml_nm1_rm1; ++i) {
+            colex[bnml_nm1 + i] = this->colex[i];
+        }
+        return Matroid(this->n + 1, this->r + 1, colex);
+    }
+
+    template <typename F>
+    void canonical_extensions(F on_extension) const;
 };
+
+#include "extension.h"  // here in order to avoid circular dependencies
+
+template <typename F>
+void Matroid::canonical_extensions(F on_extension) const {
+    return get_canonical_extensions(*this, on_extension);
+}
