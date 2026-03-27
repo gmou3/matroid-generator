@@ -1,5 +1,3 @@
-#include <omp.h>
-
 #include <iostream>
 #include <vector>
 
@@ -9,98 +7,77 @@
 
 using namespace std;
 
-int num_threads = 1;
+vector<string> read_lines(const string& path, size_t from, size_t to) {
+    ifstream file(path);
+    vector<string> result;
+    string line;
+    size_t i = 0;
 
-vector<string> IC(size_t n, size_t r, bool top_level = true) {
-    // Base cases
-    if (n < r) {
-        return {};
-    } else if (r == 0 || n == r) {
-        Matroid M(n, r, "*");
-        if (top_level) output_matroid(M, 0, 0);
-        return {M.colex};
+    while (getline(file, line)) {
+        if (i >= from && i < to) result.push_back(line);
+        if (i >= to) break;
+        ++i;
     }
-
-    if (top_level) {
-        P.resize(factorial(n) * binomial(n, r));
-        index_to_set.resize(binomial(n, r));
-        f.resize(n + 1);
-        C_r.resize(n + 2);
-    }
-
-    // Recursive calls
-    vector<string> IC_nm1 = IC(n - 1, r, false);
-    vector<string> IC_nm1_rm1 = IC(n - 1, r - 1, false);
-
-    // Initialize factorials, binomial coefficients,
-    // mappings between indices and sets,
-    // and fill permutation array of size n! * C(n, r)
-    initialize_combinatorics(n, r);
-
-    // Process IC_nm1
-    vector<string> matroids;
-    vector<vector<string>> local_matroids(!top_level ? IC_nm1.size() : 0);
-#pragma omp parallel
-    {
-        int tid = omp_get_thread_num();
-#pragma omp for schedule(dynamic, 1) nowait
-        for (size_t i = 0; i < IC_nm1.size(); ++i) {
-            Matroid M(n - 1, r, IC_nm1[i]);
-            // Iterate over all canonical extensions
-            M.canonical_extensions([&](Matroid M_ext) {
-                if (top_level)
-                    output_matroid(M_ext, i, tid);
-                else
-                    local_matroids[i].push_back(M_ext.colex);
-            });
-        }
-    }
-
-    for (const auto& v : local_matroids) {
-        matroids.insert(matroids.end(), v.begin(), v.end());
-    }
-
-    // Process IC_nm1_rm1
-    for (const string& colex : IC_nm1_rm1) {
-        Matroid M(n - 1, r - 1, colex);
-        Matroid M_ext = M.coloop_extension();
-        if (top_level)
-            output_matroid(M_ext, IC_nm1.size(), 0);
-        else
-            matroids.push_back(M_ext.colex);
-    }
-
-    return matroids;
+    return result;
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 3 || argc > 6) {
-        cout << "Usage: " << argv[0]
-             << " <n> <r> [<num_threads>] [--file] [--compressed-file]" << endl;
+    if (argc < 2 || argc > 3) {
+        cout << "Hardcoded (10, 5)-matroid-generator.\n"
+             << "Requires `seed-matroids/n09r04-5`.\n"
+             << "Usage: " << argv[0] << " <left_lim> [<right_lim>]\n"
+             << "The limits refer to seed matroid indices: 0 to 190214. If not "
+                "provided, `right_lim = left_lim + 1`.\n"
+             << "Any index `i` less than 190215 produces the canonical "
+                "extensions of the `i`-th (9, 5)-matroid.\n"
+             << "The 190214 upper limit is inclusive and produces the "
+                "extensions by a coloop of all (9, 4)-matroids.\n";
         return 1;
     }
 
     // Parse arguments
-    size_t n = stoul(argv[1]);
-    size_t r = stoul(argv[2]);
-    for (int i = 3; i < argc; ++i) {
-        if (string(argv[i]) == "--file") {
-            to_file = true;
-        } else if (string(argv[i]) == "--compressed-file") {
-            to_file = true;
-            use_compression = true;
-        } else {
-            num_threads = stoi(argv[i]);
-        }
+    size_t left_lim = stoul(argv[1]);
+    size_t right_lim = left_lim + 1;
+    if (argc == 3) {
+        right_lim = stoul(argv[2]);
     }
-    omp_set_num_threads(num_threads);
 
-    if (to_file) open_files(n, r, num_threads);
+    if (left_lim >= right_lim || right_lim > 190215) {
+        cerr << "Error: require 0 <= left_lim < right_lim <= 190215\n";
+        return 1;
+    }
 
-    // Main IC call
-    IC(n, r);
+    open_files(left_lim, right_lim);
 
-    if (to_file) merge_files();
+    // Get seed matroids
+    vector<string> IC_nm1 =
+        read_lines("seed-matroids/n09r05", left_lim, right_lim);
+    vector<string> IC_nm1_rm1;
+    if (right_lim == 190215) {
+        IC_nm1_rm1 = read_lines("seed-matroids/n09r04", 0, 190214);
+        right_lim--;
+    }
+
+    // Initialize mappings between indices and sets,
+    // and fill permutation array of size 10! * C(10, 5)
+    initialize_combinatorics();
+
+    // Process IC_nm1
+    for (size_t i = 0; i < right_lim - left_lim; ++i) {
+        Matroid M(9, 5, IC_nm1[i]);
+        // Iterate over all canonical extensions
+        M.canonical_extensions(
+            [&](Matroid M_ext) { output_matroid(M_ext, i); });
+    }
+
+    // Process IC_nm1_rm1
+    for (const string& colex : IC_nm1_rm1) {
+        Matroid M(9, 4, colex);
+        Matroid M_ext = M.coloop_extension();
+        output_matroid(M_ext, right_lim - left_lim);
+    }
+
+    close_files();
 
     return 0;
 }

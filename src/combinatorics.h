@@ -8,20 +8,24 @@
 
 using namespace std;
 
-constexpr size_t N = 16;      // maximum number of elements
-constexpr size_t N_H = 1024;  // maximum number of hyperplanes
+constexpr size_t N = 10;     // maximum number of elements
+constexpr size_t N_H = 252;  // maximum number of hyperplanes
 
-inline size_t bnml;          // C(n, r)
-inline size_t bnml_nm1;      // C(n - 1, r)
-inline size_t bnml_nm1_rm1;  // C(n - 1, r - 1)
+constexpr size_t bnml = 252;          // C(10, 5)
+constexpr size_t bnml_nm1 = 126;      // C(9, 5)
+constexpr size_t bnml_nm1_rm1 = 126;  // C(9, 4)
 
-inline vector<unsigned char> P;
-inline vector<size_t> f;    // factorials (shifted by one)
-inline vector<size_t> C_r;  // binomials choose r (reversed)
+inline unsigned char P[914457600];
 
-inline unsigned char set_to_index[1 << N];  // set from C([n], r) to index
-inline vector<bitset<N>> index_to_set;      // index to set from C([n], r)
-inline vector<bitset<N>> R;                 // for taboo_hyperplanes calculation
+// f[i] = (i - 1)!
+constexpr size_t f[11] = {0, 1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880};
+
+// C_r[i] = C(n - i, r)
+constexpr unsigned char C_r[12] = {252, 126, 56, 21, 6, 1, 0, 0, 0, 0, 0, 0};
+
+inline unsigned char set_to_index[1024];  // set from C([n], r) to index
+inline bitset<N> index_to_set[252];       // index to set from C([n], r)
+inline vector<bitset<N>> R;               // for taboo_hyperplanes calculation
 
 template <size_t N>
 struct CoLexComparator {
@@ -89,33 +93,22 @@ inline size_t binomial(size_t n, size_t k) {
     return res;
 }
 
-inline void initialize_combinatorics(size_t n, size_t r) {
-    // Initialize factorial array
-    for (size_t i = 1; i <= n; ++i) {
-        f[i] = factorial(i - 1);
-    }
-
-    // Initialize binomial coefficients
-    bnml = binomial(n, r);
-    bnml_nm1 = binomial(n - 1, r);
-    bnml_nm1_rm1 = binomial(n - 1, r - 1);
-    C_r[n + 1] = 0;
-    for (size_t i = 0; i <= n; ++i) {
-        C_r[i] = static_cast<unsigned char>(binomial(n - i, r));
-    }
-
+inline void initialize_combinatorics() {
     // Initialize mappings between indices and sets
-    index_to_set = combinations<N>(n, r);
+    size_t i = 0;
+    for (bitset<N> C : combinations<N>(10, 5)) {
+        index_to_set[i++] = C;
+    }
     for (unsigned char i = 0; i < bnml; ++i) {
         set_to_index[index_to_set[i].to_ulong()] = i;
     }
 
     // Fill permutation array P
-    vector<vector<size_t>> perms = permutations(n);
-    for (size_t i = 0; i < factorial(n); ++i) {
+    vector<vector<size_t>> perms = permutations(10);
+    for (size_t i = 0; i < factorial(10); ++i) {
         for (size_t j = 0; j < bnml; ++j) {
             bitset<N> transformed_set;
-            for (size_t k = 0; k < n; ++k) {
+            for (size_t k = 0; k < 10; ++k) {
                 if (index_to_set[j][k]) {
                     transformed_set.set(perms[i][k]);
                 }
@@ -124,11 +117,11 @@ inline void initialize_combinatorics(size_t n, size_t r) {
         }
     }
 
-    // Initialize R: combos from C([n - 1], r) with n - 2
+    // Initialize R: combos from C([9], 5) with 8
     R.clear();
-    vector<bitset<N>> combos = combinations<N>(n - 1, r);
+    vector<bitset<N>> combos = combinations<N>(9, 5);
     for (const bitset<N>& combo : combos) {
-        if (combo[n - 2]) {
+        if (combo[8]) {
             R.push_back(combo);
         }
     }

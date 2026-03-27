@@ -14,10 +14,10 @@ DEPS := $(OBJS:.o=.d) $(BUILD_DIR)/sz.d
 all: $(TARGET) $(SZ)
 
 $(TARGET): $(OBJS) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -fopenmp -o $@ $^
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -fopenmp -MMD -MP -MF $(BUILD_DIR)/$*.d -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(BUILD_DIR)/$*.d -c -o $@ $<
 
 $(SZ): $(SRC_DIR)/sz.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(BUILD_DIR)/sz.d -o $@ $<
