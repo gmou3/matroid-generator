@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
              << "Usage: " << argv[0] << " <left_lim> [<right_lim>]\n"
              << "The limits refer to seed matroid indices: 0 to 190214. If not "
                 "provided, `right_lim = left_lim + 1`.\n"
-             << "Any index `i` less than 190215 produces the canonical "
+             << "Any index `i` less than 190214 produces the canonical "
                 "extensions of the `i`-th (9, 5)-matroid.\n"
              << "The 190214 upper limit is inclusive and produces the "
                 "extensions by a coloop of all (9, 4)-matroids.\n";
