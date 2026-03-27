@@ -163,6 +163,7 @@ class SZReader {
     int B;
     string prev;  // stored as '0'/'*' chars
     bool have_first_line;
+    size_t cnt;
     size_t remaining = 0;
 
    public:
@@ -180,6 +181,7 @@ class SZReader {
             return false;
 
         line_len = static_cast<size_t>(L32);
+        cnt = static_cast<size_t>(count);
         if (line_len == 0) return false;
         remaining = count;
 
@@ -219,6 +221,10 @@ class SZReader {
         prev = cur;
         remaining--;
         return true;
+    }
+
+    string getinfo() {
+        return to_string(cnt) + " strings of length " + to_string(line_len);
     }
 
     void close() { file.close(); }

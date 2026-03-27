@@ -2,9 +2,9 @@
 
 DIR="$(dirname "$(readlink -f "$0")")/../build"
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: szcat <file>" >&2
+if [ "$#" -eq 0 ]; then
+    echo "Usage: szcat [-i] <file>" >&2
     exit 1
 fi
 
-"$DIR/sz" "$1" -d -o /dev/stdout
+"$DIR/sz" "$@" -d -o /dev/stdout

@@ -7,4 +7,19 @@ if ! command -v xzcat &>/dev/null; then
     exit 1
 fi
 
-xzcat "$1" | "$DIR/szcat.sh" /dev/stdin
+if [ "$#" -eq 0 ]; then
+    echo "Usage: szxzcat [-i] <file>" >&2
+    exit 1
+fi
+
+FLAGS=()
+ARGS=()
+for arg in "$@"; do
+    case $arg in
+        -i) FLAGS+=("-i") ;;
+        *)  ARGS+=("$arg") ;;
+    esac
+done
+FILE="${ARGS[0]}"
+
+xzcat "$FILE" | "$DIR/szcat.sh" "${FLAGS[@]}" /dev/stdin

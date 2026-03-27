@@ -24,7 +24,7 @@ To generate all (canonical) matroids over `n` elements of rank `r`, run
 - `--file` (optional) — output will be written to the file `output/n__r__`
   (instead of `stdout`)
 - `--compressed-file` (optional) — output will be written to the SZ compressed
-  file `output/n__r__.sz`. Use `scripts/szcat.sh` to see the contents.
+  file `output/n__r__.sz`. Use `scripts/szcat.sh [-i]` to see the contents.
 
 WARNING: Memory usage scales with `n` and `r`.
 
@@ -66,9 +66,9 @@ The algorithm works recursively and uses single-element matroid extensions.
 There is a bijection between single-element matroid extensions and modular cuts.
 The empty modular cut produces the extension by a coloop. We encode the nonempty
 modular cuts using the notion of linear subclasses. The DFS search over linear
-subclasses is adapted from the files `src/sage/matroids/extension.*` in Sage
-[https://github.com/sagemath/sage]. Given a linear subclass, we translate it to
-a matroid extension, and, if it is canonical, we output it.
+subclasses is adapted from the files `src/sage/matroids/extension.*` in
+[SageMath](https://github.com/sagemath/sage). Given a linear subclass, we
+translate it to a matroid extension, and, if it is canonical, we output it.
 
 See [[2]](#2) for the relevant background knowledge. Of particular interest is
 Chapter 7, where one can find the definitions of modular cut (p. 266), and

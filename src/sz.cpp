@@ -11,6 +11,7 @@ int main(int argc, char** argv) {
     const char* inpath = nullptr;
     const char* outpath = nullptr;
     bool decompress = false;
+    bool get_info = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-o") == 0) {
@@ -20,6 +21,9 @@ int main(int argc, char** argv) {
             }
             outpath = argv[i];
         } else if (strcmp(argv[i], "-d") == 0) {
+            decompress = true;
+        } else if (strcmp(argv[i], "-i") == 0) {
+            get_info = true;
             decompress = true;
         } else {
             inpath = argv[i];
@@ -52,8 +56,13 @@ int main(int argc, char** argv) {
     if (decompress) {
         SZReader reader;
         if (!reader.open(inpath)) {
-            cerr << "Failed to open " << inpath << '\n';
+            cerr << "sz: Failed to open " << inpath << '\n';
             return 1;
+        }
+
+        if (get_info) {
+            cout << reader.getinfo() << '\n';
+            return 0;
         }
 
         ofstream fout;
@@ -63,7 +72,7 @@ int main(int argc, char** argv) {
             fout.open(outpath);
         }
         if (!fout) {
-            cerr << "Failed to open " << outpath << '\n';
+            cerr << "sz: Failed to open " << outpath << '\n';
             return 1;
         }
 
@@ -74,13 +83,13 @@ int main(int argc, char** argv) {
     } else {
         SZWriter writer;
         if (!writer.open(outpath)) {
-            cerr << "Failed to open " << outpath << '\n';
+            cerr << "sz: Failed to open " << outpath << '\n';
             return 1;
         }
 
         ifstream fin(inpath);
         if (!fin) {
-            cerr << "Failed to open " << inpath << '\n';
+            cerr << "sz: Failed to open " << inpath << '\n';
             return 1;
         }
 
