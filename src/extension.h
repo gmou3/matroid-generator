@@ -58,9 +58,8 @@ inline bool is_canonical(const string& colex) {
         }
         for (size_t i = 0; i < f[6]; ++i) {
             size_t perm_id = r_set_to_perm_ids[r_set_ind * f[6] + i];
-            size_t tmp_fctrl = f[5];
             for (size_t j = 0; j < 5; ++j) {
-                if (!dfs_canonical(colex.data(), 4, perm_id + j * tmp_fctrl)) {
+                if (!dfs_canonical(colex.data(), 4, perm_id + j * f[5])) {
                     return false;
                 }
             }
