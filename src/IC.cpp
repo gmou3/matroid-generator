@@ -26,6 +26,8 @@ vector<string> IC(size_t n, size_t r, bool top_level = true) {
         index_to_set.resize(binomial(n, r));
         f.resize(n + 1);
         C_r.resize(n + 2);
+        r_set_to_j.resize(binomial(n, r));
+        r_set_to_perm_ids.resize(binomial(n, r) * factorial(r));
     }
 
     // Recursive calls
