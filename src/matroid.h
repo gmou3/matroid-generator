@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bitset>
+#include <cstdint>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -13,25 +14,25 @@ using namespace std;
 
 class Matroid {
    private:
-    mutable unordered_map<bitset<N>, size_t> rank_cache;
+    mutable unordered_map<bitset<N>, uint16_t> rank_cache;
     mutable unordered_map<bitset<N>, bitset<N>> closure_cache;
 
    public:
-    size_t n;
-    size_t r;
+    uint16_t n;
+    uint16_t r;
     string colex;
     mutable set<bitset<N>, CoLexComparator<N>> ind_sets_rm1;
     mutable vector<bitset<N>> hyperplanes;
     mutable unordered_set<bitset<N>> taboo_hyperplanes;
     mutable vector<bitset<N>> hyperlines;
-    mutable vector<vector<size_t>> planes_to_lines;
-    mutable vector<vector<size_t>> lines_to_planes;
-    mutable unordered_map<bitset<N>, size_t> hyperplanes_index;
+    mutable vector<vector<uint16_t>> planes_to_lines;
+    mutable vector<vector<uint16_t>> lines_to_planes;
+    mutable unordered_map<bitset<N>, uint16_t> hyperplanes_index;
 
-    Matroid(const size_t& n, const size_t& r, const string& colex)
+    Matroid(const uint16_t& n, const uint16_t& r, const string& colex)
         : n(n), r(r), colex(colex) {}
 
-    size_t rank(const bitset<N>& F) const;
+    uint16_t rank(const bitset<N>& F) const;
     bitset<N> closure(const bitset<N>& F) const;
     void init_ind_sets_rm1() const;
     void init_hyperplanes() const;
@@ -41,7 +42,7 @@ class Matroid {
     Matroid coloop_extension() const {
         string colex(bnml, '0');
         // C(n, r) = C(n - 1, r - 1) + C(n - 1, r)
-        for (size_t i = 0; i < bnml_nm1_rm1; ++i) {
+        for (uint16_t i = 0; i < bnml_nm1_rm1; ++i) {
             colex[bnml_nm1 + i] = this->colex[i];
         }
         return Matroid(this->n + 1, this->r + 1, colex);

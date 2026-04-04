@@ -11,7 +11,7 @@
 using namespace std;
 
 inline bool dfs_canonical(const char* colex, const size_t unset,
-                          const size_t perm_id) {
+                          const uint16_t* P_row, const uint16_t* T_row) {
     // The variable `unset` stores the number of undetermined positions at the
     // end of the current partial permutation sigma. sigma is viewed inversely
     // (sigma[k] becomes k).
@@ -19,7 +19,7 @@ inline bool dfs_canonical(const char* colex, const size_t unset,
     // Check new determinable sets from partial sigma:
     // Loop through positions C(n - unset - 1, r) to C(n - unset, r).
     for (size_t j = C_r[unset + 1]; j < C_r[unset]; ++j) {
-        if (colex[P[perm_id * bnml + j]] != colex[j]) {
+        if (colex[P_row[T_row[j]]] != colex[j]) {
             if (colex[j] == '*') {
                 return false;  // Not canonical
             }
@@ -35,7 +35,8 @@ inline bool dfs_canonical(const char* colex, const size_t unset,
     // Build one more position in partial sigma
     for (size_t i = 0; i < unset; ++i) {
         // Increment perm_id by (unset - 1)! as we skip a smaller element
-        if (!dfs_canonical(colex, unset - 1, perm_id + i * f[unset])) {
+        if (!dfs_canonical(colex, unset - 1, P_row,
+                           T_row + i * f[unset] * bnml)) {
             return false;
         }
     }
@@ -57,11 +58,11 @@ inline bool is_canonical(const string& colex, size_t n, size_t r) {
             continue;
         }
         for (size_t i = 0; i < f[r + 1]; ++i) {
-            size_t perm_id = r_set_to_perm_ids[r_set_idx * f[r + 1] + i];
-            size_t tmp_fctrl = f[n - r];
+            size_t perm_rep = r_set_to_perm_reps[r_set_idx * f[r + 1] + i];
+            uint16_t* P_row = P + perm_rep * bnml;
             for (size_t j = 0; j < n - r; ++j) {
-                if (!dfs_canonical(colex.data(), n - r - 1,
-                                   perm_id + j * tmp_fctrl)) {
+                if (!dfs_canonical(colex.data(), n - r - 1, P_row,
+                                   T + j * f[n - r] * bnml)) {
                     return false;
                 }
             }
@@ -247,13 +248,13 @@ bool dfs_search(Node& node, F& on_extension) {
 
     // Exclude plane p (continue with remaining planes)
     Node exclude_node(node);
-    exclude_node.remove_plane(static_cast<size_t>(p));
+    exclude_node.remove_plane(p);
     bool exclusion_success = dfs_search(exclude_node, on_extension);
 
     if (exclusion_success) {
         // Try including plane p
         Node include_node(node);
-        if (include_node.insert_plane(static_cast<size_t>(p))) {
+        if (include_node.insert_plane(p)) {
             dfs_search(include_node, on_extension);
         }
     }

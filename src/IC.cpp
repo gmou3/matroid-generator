@@ -1,5 +1,6 @@
 #include <omp.h>
 
+#include <cstdint>
 #include <iostream>
 #include <vector>
 
@@ -11,7 +12,7 @@ using namespace std;
 
 int num_threads = 1;
 
-vector<string> IC(size_t n, size_t r, bool top_level = true) {
+vector<string> IC(uint16_t n, uint16_t r, bool top_level = true) {
     // Base cases
     if (n < r) {
         return {};
@@ -22,12 +23,15 @@ vector<string> IC(size_t n, size_t r, bool top_level = true) {
     }
 
     if (top_level) {
-        P.resize(factorial(n) * binomial(n, r));
+        // These sizes suffice because the recursive calls are
+        // (n - 1, r) and (n - 1, r - 1)
+        P = new uint16_t[binomial(n, r) * factorial(r) * binomial(n, r)];
+        T = new uint16_t[factorial(n - r) * binomial(n, r)];
         index_to_set.resize(binomial(n, r));
         f.resize(n + 1);
         C_r.resize(n + 2);
         r_set_to_j.resize(binomial(n, r));
-        r_set_to_perm_ids.resize(binomial(n, r) * factorial(r));
+        r_set_to_perm_reps.resize(binomial(n, r) * factorial(r));
     }
 
     // Recursive calls
@@ -58,8 +62,9 @@ vector<string> IC(size_t n, size_t r, bool top_level = true) {
         }
     }
 
-    for (const auto& v : local_matroids) {
-        matroids.insert(matroids.end(), v.begin(), v.end());
+    for (auto& v : local_matroids) {
+        matroids.insert(matroids.end(), make_move_iterator(v.begin()),
+                        make_move_iterator(v.end()));
     }
 
     // Process IC_nm1_rm1
@@ -69,7 +74,7 @@ vector<string> IC(size_t n, size_t r, bool top_level = true) {
         if (top_level)
             output_matroid(M_ext, IC_nm1.size(), 0);
         else
-            matroids.push_back(M_ext.colex);
+            matroids.push_back(move(M_ext.colex));
     }
 
     return matroids;
@@ -83,8 +88,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Parse arguments
-    size_t n = stoul(argv[1]);
-    size_t r = stoul(argv[2]);
+    uint16_t n = static_cast<uint16_t>(stoul(argv[1]));
+    uint16_t r = static_cast<uint16_t>(stoul(argv[2]));
     for (int i = 3; i < argc; ++i) {
         if (string(argv[i]) == "--file") {
             to_file = true;

@@ -2,31 +2,36 @@
 
 #include <algorithm>
 #include <bitset>
+#include <cstdint>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 using namespace std;
 
-constexpr size_t N = 16;      // maximum number of elements
-constexpr size_t N_H = 1024;  // maximum number of hyperplanes
+constexpr uint16_t N = 16;      // maximum number of elements
+constexpr uint16_t N_H = 1024;  // maximum number of hyperplanes
 
-inline size_t bnml;          // C(n, r)
-inline size_t bnml_nm1;      // C(n - 1, r)
-inline size_t bnml_nm1_rm1;  // C(n - 1, r - 1)
+inline uint16_t bnml;          // C(n, r)
+inline uint16_t bnml_nm1;      // C(n - 1, r)
+inline uint16_t bnml_nm1_rm1;  // C(n - 1, r - 1)
 
-inline vector<unsigned char> P;
-inline vector<size_t> f;    // factorials (shifted by one)
-inline vector<size_t> C_r;  // binomials choose r (reversed)
+inline uint16_t* P;  // representatives (an ordered choice of
+                     // the first r elements)
+inline uint16_t* T;  // relative transpositions of representatives (action
+                     // on colex of the order of the rest n - r elements)
 
-inline unsigned char set_to_index[1 << N];  // set from C([n], r) to index
-inline vector<bitset<N>> index_to_set;      // index to set from C([n], r)
-inline vector<bitset<N>> R;                 // for taboo_hyperplanes calculation
+inline vector<size_t> f;      // factorials (shifted by one)
+inline vector<uint16_t> C_r;  // binomials choose r (reversed)
 
-inline vector<unsigned char> r_set_to_j;  // colex position for check
-inline vector<size_t> r_set_to_perm_ids;  // all perm_ids, grouped by r_set
+inline uint16_t set_to_index[1 << N];   // set from C([n], r) to index
+inline vector<bitset<N>> index_to_set;  // index to set from C([n], r)
+inline vector<bitset<N>> R;             // for taboo_hyperplanes calculation
 
-template <size_t N>
+inline vector<uint16_t> r_set_to_j;        // colex position for check
+inline vector<size_t> r_set_to_perm_reps;  // all perm reps, grouped by r-set
+
+template <uint16_t N>
 struct CoLexComparator {
     bool operator()(const bitset<N>& a, const bitset<N>& b) const {
         for (int i = N - 1; i >= 0; --i) {
@@ -38,12 +43,12 @@ struct CoLexComparator {
     }
 };
 
-template <size_t N>
-vector<bitset<N>> combinations(size_t n, size_t r) {
+template <uint16_t N>
+vector<bitset<N>> combinations(uint16_t n, uint16_t r) {
     // Produce C([n], r) in colex order
     if (r == 0 || n == r) {
         bitset<N> b;
-        for (size_t i = 0; i < r; ++i) b.set(i);
+        for (uint16_t i = 0; i < r; ++i) b.set(i);
         return {b};
     }
     vector<bitset<N>> result = combinations<N>(n - 1, r);
@@ -54,21 +59,11 @@ vector<bitset<N>> combinations(size_t n, size_t r) {
     return result;
 }
 
-inline vector<vector<size_t>> permutations(size_t n) {
-    vector<vector<size_t>> result;
-    vector<size_t> perm(n);
-    for (size_t i = 0; i < n; ++i) perm[i] = i;
-    do {
-        result.push_back(perm);
-    } while (next_permutation(perm.begin(), perm.end()));
-    return result;
-}
-
-template <size_t N>
+template <uint16_t N>
 inline vector<bitset<N>> generate_minus_1_subsets(const bitset<N>& set,
-                                                  const size_t& n) {
+                                                  const uint16_t& n) {
     unordered_set<bitset<N>> subsets;
-    for (size_t i = 0; i < n; ++i) {
+    for (uint16_t i = 0; i < n; ++i) {
         if (set[i]) {
             bitset<N> tmp = set;
             tmp.reset(i);
@@ -78,23 +73,23 @@ inline vector<bitset<N>> generate_minus_1_subsets(const bitset<N>& set,
     return vector<bitset<N>>(subsets.begin(), subsets.end());
 }
 
-inline size_t factorial(size_t n) {
+inline size_t factorial(uint16_t n) {
     if (n <= 1) return 1;
     return n * factorial(n - 1);
 }
 
-inline size_t binomial(size_t n, size_t k) {
+inline uint16_t binomial(size_t n, size_t k) {
     if (k == 0 || k == n) return 1;
     size_t res = 1;
     for (size_t i = 0; i < k; ++i) {
         res = res * (n - i) / (i + 1);
     }
-    return res;
+    return static_cast<uint16_t>(res);
 }
 
-inline void initialize_combinatorics(size_t n, size_t r) {
+inline void initialize_combinatorics(uint16_t n, uint16_t r) {
     // Initialize factorial array
-    for (size_t i = 1; i <= n; ++i) {
+    for (uint16_t i = 1; i <= n; ++i) {
         f[i] = factorial(i - 1);
     }
 
@@ -103,51 +98,60 @@ inline void initialize_combinatorics(size_t n, size_t r) {
     bnml_nm1 = binomial(n - 1, r);
     bnml_nm1_rm1 = binomial(n - 1, r - 1);
     C_r[n + 1] = 0;
-    for (size_t i = 0; i <= n; ++i) {
-        C_r[i] = static_cast<unsigned char>(binomial(n - i, r));
+    for (uint16_t i = 0; i <= n; ++i) {
+        C_r[i] = binomial(n - i, r);
     }
 
     // Initialize mappings between indices and sets
     index_to_set = combinations<N>(n, r);
-    for (unsigned char i = 0; i < bnml; ++i) {
+    for (uint16_t i = 0; i < bnml; ++i) {
         set_to_index[index_to_set[i].to_ulong()] = i;
     }
 
+    auto apply_perm = [&](vector<uint16_t> perm, uint16_t j) -> uint16_t {
+        bitset<N> transformed_set;
+        for (size_t k = 0; k < n; ++k)
+            if (index_to_set[j][k]) transformed_set.set(perm[k]);
+        return set_to_index[transformed_set.to_ulong()];
+    };
+
     // Fill permutation array P
-    vector<vector<size_t>> perms = permutations(n);
     vector<size_t> r_set_counts(bnml, 0);
-    for (size_t i = 0; i < factorial(n); ++i) {
-        for (size_t j = 0; j < bnml; ++j) {
-            bitset<N> transformed_set;
-            for (size_t k = 0; k < n; ++k) {
-                if (index_to_set[j][k]) {
-                    transformed_set.set(perms[i][k]);
-                }
+    vector<uint16_t> perm(n);
+    for (uint16_t i = 0; i < n; ++i) perm[i] = i;
+    size_t i = 0;
+    do {
+        // Fill representative
+        if (i % f[n - r + 1] == 0) {
+            for (uint16_t j = 0; j < bnml; ++j) {
+                P[i / f[n - r + 1] * bnml + j] = apply_perm(perm, j);
             }
-            P[i * bnml + j] = set_to_index[transformed_set.to_ulong()];
         }
 
-        // Fill r_set_to_j and r_set_to_perm_ids
-        bitset<N> first_r;
-        for (size_t k = 0; k < r; ++k) {
-            first_r.set(perms[i][k]);
+        // Fill transposition array T
+        if (i / f[n - r + 1] == 0) {
+            for (uint16_t j = 0; j < bnml; ++j) {
+                T[i * bnml + j] = apply_perm(perm, j);
+            }
         }
-        size_t r_set_idx = set_to_index[first_r.to_ulong()];
+
+        bitset<N> first_r;
+        for (uint16_t k = 0; k < r; ++k) first_r.set(perm[k]);
+        uint16_t r_set_idx = set_to_index[first_r.to_ulong()];
         bool rest_sorted = true;
-        for (size_t k = r; k + 1 < n; ++k) {
-            if (perms[i][k] > perms[i][k + 1]) {
+        for (uint16_t k = r; k + 1 < n; ++k) {
+            if (perm[k] > perm[k + 1]) {
                 rest_sorted = false;
                 break;
             }
         }
         if (rest_sorted) {
             size_t ind = r_set_counts[r_set_idx]++;
-            r_set_to_perm_ids[r_set_idx * f[r + 1] + ind] = i;
-            if (ind == 0) {
-                r_set_to_j[r_set_idx] = P[i * bnml];
-            }
+            r_set_to_perm_reps[r_set_idx * f[r + 1] + ind] = i / f[n - r + 1];
+            if (ind == 0) r_set_to_j[r_set_idx] = apply_perm(perm, 0);
         }
-    }
+        ++i;
+    } while (next_permutation(perm.begin(), perm.end()));
 
     // Initialize R: combos from C([n - 1], r) with n - 2
     R.clear();

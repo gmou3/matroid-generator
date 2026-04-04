@@ -1,6 +1,7 @@
 #include "matroid.h"
 
 #include <bitset>
+#include <cstdint>
 #include <set>
 #include <vector>
 
@@ -8,17 +9,17 @@
 
 using namespace std;
 
-size_t Matroid::rank(const bitset<N>& F) const {
+uint16_t Matroid::rank(const bitset<N>& F) const {
     auto it = rank_cache.find(F);
     if (it != rank_cache.end()) {
         return it->second;
     }
 
-    size_t F_cnt = F.count();
-    size_t max_rank = 0;
-    for (size_t i = 0; i < colex.length(); ++i) {
+    uint16_t F_cnt = static_cast<uint16_t>(F.count());
+    uint16_t max_rank = 0;
+    for (uint16_t i = 0; i < colex.length(); ++i) {
         if (colex[i] == '*') {
-            size_t cnt = (F & index_to_set[i]).count();
+            uint16_t cnt = static_cast<uint16_t>((F & index_to_set[i]).count());
             if (cnt > max_rank) {
                 max_rank = cnt;
                 if (cnt == F_cnt) {
@@ -39,8 +40,8 @@ bitset<N> Matroid::closure(const bitset<N>& F) const {
     }
 
     bitset<N> cl = F;
-    size_t rank_F = rank(F);
-    for (size_t i = 0; i < n; ++i) {
+    uint16_t rank_F = rank(F);
+    for (uint16_t i = 0; i < n; ++i) {
         if (!cl[i]) {
             cl.set(i);
             if (rank(cl) > rank_F) {
@@ -55,10 +56,10 @@ bitset<N> Matroid::closure(const bitset<N>& F) const {
 
 // Independent (r - 1)-sets
 void Matroid::init_ind_sets_rm1() const {
-    for (size_t i = 0; i < colex.size(); ++i) {
+    for (uint16_t i = 0; i < colex.size(); ++i) {
         if (colex[i] == '*') {
             for (const bitset<N>& S :
-                 generate_minus_1_subsets(index_to_set[i], n)) {
+                 generate_minus_1_subsets<N>(index_to_set[i], n)) {
                 ind_sets_rm1.insert(S);
             }
         }
@@ -87,17 +88,17 @@ void Matroid::init_hyperplanes() const {
             H_unordered.erase(H);
         }
     }
-    for (size_t i = 0; i < hyperplanes.size(); ++i) {
+    for (uint16_t i = 0; i < hyperplanes.size(); ++i) {
         hyperplanes_index[hyperplanes[i]] = i;
     }
 }
 
 void Matroid::init_taboo_hyperplanes(const vector<bitset<N>>& R) const {
     // Prop. 1
-    size_t mx = 0;
+    uint16_t mx = 0;
     for (const bitset<N>& H : hyperplanes) {
         if (mx < H.count()) {
-            mx = H.count();
+            mx = static_cast<uint16_t>(H.count());
         }
     }
     for (const bitset<N>& H : hyperplanes) {
@@ -128,7 +129,7 @@ void Matroid::init_hyperlines() const {
     for (const bitset<N>& H : hyperplanes) {
         for (const bitset<N>& T : hyperplanes) {
             bitset<N> intersection = H & T;
-            if (intersection.count() >= r - 2 && rank(intersection) == r - 2) {
+            if (intersection.count() + 2 >= r && rank(intersection) + 2 == r) {
                 res_set.insert(intersection);
             }
         }
@@ -137,7 +138,7 @@ void Matroid::init_hyperlines() const {
     planes_to_lines.resize(hyperplanes.size());
     lines_to_planes.resize(hyperlines.size());
     for (const bitset<N>& H : hyperplanes) {
-        size_t cnt = 0;
+        uint16_t cnt = 0;
         for (const bitset<N>& L : hyperlines) {
             if ((H & L) == L) {
                 planes_to_lines[hyperplanes_index[H]].push_back(cnt);
