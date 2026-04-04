@@ -11,7 +11,8 @@
 using namespace std;
 
 inline bool dfs_canonical(const char* colex, const size_t unset,
-                          const size_t perm_id) {
+                          const unsigned char* P_row,
+                          const unsigned char* T_row) {
     // The variable `unset` stores the number of undetermined positions at the
     // end of the current partial permutation sigma. sigma is viewed inversely
     // (sigma[k] becomes k).
@@ -19,7 +20,7 @@ inline bool dfs_canonical(const char* colex, const size_t unset,
     // Check new determinable sets from partial sigma:
     // Loop through positions C(n - unset - 1, r) to C(n - unset, r).
     for (size_t j = C_r[unset + 1]; j < C_r[unset]; ++j) {
-        if (colex[P[perm_id * bnml + j]] != colex[j]) {
+        if (colex[P_row[T_row[j]]] != colex[j]) {
             if (colex[j] == '*') {
                 return false;  // Not canonical
             }
@@ -35,7 +36,8 @@ inline bool dfs_canonical(const char* colex, const size_t unset,
     // Build one more position in partial sigma
     for (size_t i = 0; i < unset; ++i) {
         // Increment perm_id by (unset - 1)! as we skip a smaller element
-        if (!dfs_canonical(colex, unset - 1, perm_id + i * f[unset])) {
+        if (!dfs_canonical(colex, unset - 1, P_row,
+                           T_row + i * f[unset] * bnml)) {
             return false;
         }
     }
@@ -57,9 +59,11 @@ inline bool is_canonical(const string& colex) {
             continue;
         }
         for (size_t i = 0; i < f[6]; ++i) {
-            size_t perm_id = r_set_to_perm_ids[r_set_ind * f[6] + i];
+            size_t perm_rep = r_set_to_perm_reps[r_set_ind * f[6] + i];
+            const unsigned char* P_row = P[perm_rep];
             for (size_t j = 0; j < 5; ++j) {
-                if (!dfs_canonical(colex.data(), 4, perm_id + j * f[5])) {
+                if (!dfs_canonical(colex.data(), 4, P_row,
+                                   T[0] + j * f[5] * bnml)) {
                     return false;
                 }
             }

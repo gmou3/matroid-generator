@@ -15,7 +15,9 @@ constexpr size_t bnml = 252;          // C(10, 5)
 constexpr size_t bnml_nm1 = 126;      // C(9, 5)
 constexpr size_t bnml_nm1_rm1 = 126;  // C(9, 4)
 
-inline unsigned char P[914457600];
+inline unsigned char
+    P[30240][252];  // representatives (an ordered choice of 5 first elements)
+inline unsigned char T[120][252];  // relative transpositions of representatives
 
 // f[i] = (i - 1)!
 constexpr size_t f[11] = {0, 1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880};
@@ -27,8 +29,8 @@ inline unsigned char set_to_index[1024];  // set from C([n], r) to index
 inline bitset<N> index_to_set[252];       // index to set from C([n], r)
 inline vector<bitset<N>> R;               // for taboo_hyperplanes calculation
 
-inline unsigned char r_set_to_j[252];    // colex position for check
-inline size_t r_set_to_perm_ids[30240];  // all perm_ids, grouped by r_set
+inline unsigned char r_set_to_j[252];     // colex position for check
+inline size_t r_set_to_perm_reps[30240];  // all perm_reps, grouped by r_set
 
 template <size_t N>
 struct CoLexComparator {
@@ -55,16 +57,6 @@ vector<bitset<N>> combinations(size_t n, size_t r) {
         b.set(n - 1);
         result.push_back(b);
     }
-    return result;
-}
-
-inline vector<vector<size_t>> permutations(size_t n) {
-    vector<vector<size_t>> result;
-    vector<size_t> perm(n);
-    for (size_t i = 0; i < n; ++i) perm[i] = i;
-    do {
-        result.push_back(perm);
-    } while (next_permutation(perm.begin(), perm.end()));
     return result;
 }
 
@@ -106,40 +98,48 @@ inline void initialize_combinatorics() {
         set_to_index[index_to_set[i].to_ulong()] = i;
     }
 
-    // Fill permutation array P
-    vector<vector<size_t>> perms = permutations(10);
+    auto apply_perm = [&](vector<size_t> perm, size_t j) -> unsigned char {
+        bitset<N> transformed_set;
+        for (size_t k = 0; k < 10; ++k)
+            if (index_to_set[j][k]) transformed_set.set(perm[k]);
+        return set_to_index[transformed_set.to_ulong()];
+    };
+
     vector<size_t> r_set_counts(bnml, 0);
-    for (size_t i = 0; i < factorial(10); ++i) {
-        for (size_t j = 0; j < bnml; ++j) {
-            bitset<N> transformed_set;
-            for (size_t k = 0; k < 10; ++k) {
-                if (index_to_set[j][k]) {
-                    transformed_set.set(perms[i][k]);
-                }
+    vector<size_t> perm(10);
+    for (size_t i = 0; i < 10; ++i) perm[i] = i;
+    i = 0;
+    do {
+        // Fill permutation array P with representatives
+        if (i % 120 == 0) {
+            for (size_t j = 0; j < bnml; ++j) {
+                P[i / 120][j] = apply_perm(perm, j);
             }
-            P[i * bnml + j] = set_to_index[transformed_set.to_ulong()];
+        }
+
+        // Fill permutation array T
+        if (i / 120 == 0) {
+            for (size_t j = 0; j < bnml; ++j) {
+                T[i][j] = apply_perm(perm, j);
+            }
         }
 
         bitset<N> first_r;
-        for (size_t k = 0; k < 5; ++k) {
-            first_r.set(perms[i][k]);
-        }
+        for (size_t k = 0; k < 5; ++k) first_r.set(perm[k]);
+        size_t r_set_idx = set_to_index[first_r.to_ulong()];
         bool rest_sorted = true;
-        for (size_t k = 5; k + 1 < 10; ++k) {
-            if (perms[i][k] > perms[i][k + 1]) {
+        for (size_t k = 5; k + 1 < 10; ++k)
+            if (perm[k] > perm[k + 1]) {
                 rest_sorted = false;
                 break;
             }
-        }
         if (rest_sorted) {
-            size_t r_set = set_to_index[first_r.to_ulong()];
-            size_t ind = r_set_counts[r_set]++;
-            r_set_to_perm_ids[r_set * f[5 + 1] + ind] = i;
-            if (ind == 0) {
-                r_set_to_j[r_set] = P[i * bnml];
-            }
+            size_t ind = r_set_counts[r_set_idx]++;
+            r_set_to_perm_reps[r_set_idx * f[5 + 1] + ind] = i / 120;
+            if (ind == 0) r_set_to_j[r_set_idx] = apply_perm(perm, 0);
         }
-    }
+        ++i;
+    } while (next_permutation(perm.begin(), perm.end()));
 
     // Initialize R: combos from C([9], 5) with 8
     R.clear();
