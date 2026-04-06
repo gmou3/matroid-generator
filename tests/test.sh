@@ -9,42 +9,21 @@ if [ ! -f $executable ]; then
     exit 1
 fi
 
-flag=true
-N=8
-echo "Testing for all matroids with up to $N elements..."
-for ((n = 0; n <= N; n++)); do
-    for ((r = 0; r <= n; r++)); do
-        # Test serial version
-        expected=$(< "expected/n0${n}r0${r}")
-        output=$($executable $n $r)
-        if [ "$expected" != "$output" ]; then
-            echo "Test failed: ($n, $r)"
-            flag=false
-        fi
-
-        # Test parallel version with file output
-        $executable $n $r 2 --file
-        output=$(< "output/n0${n}r0${r}")
-        if [ "$expected" != "$output" ]; then
-            echo "Test failed: ($n, $r, 2, --file)"
-            flag=false
-        fi
-
-        # Test parallel version with compressed file output
-        $executable $n $r 4 --compressed-file
-        output=$(../scripts/szcat.sh "output/n0${n}r0${r}.sz")
-        if [ "$expected" != "$output" ]; then
-            echo "Test failed: ($n, $r, 4, --compressed-file)"
-            flag=false
-        fi
-    done
+echo "Testing output for specific seed matroids..."
+for seed_idx in 0 2500 5000 7500 10000 22500 25000 37500 60000 100000 115000 \
+                122500 140000 160000 180000 190000 190214; do
+    echo "Processing seed index $seed_idx..."
+    time $executable $seed_idx
 done
+
+sha256sum -c "sha256sums"
+exit_code=$?
 
 rm -rf output
 popd >/dev/null
 
-if $flag; then
+if [ $exit_code -eq 0 ]; then
     echo "All tests passed!"
 else
-    exit 1
+    exit $exit_code
 fi

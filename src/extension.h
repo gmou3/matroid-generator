@@ -45,14 +45,7 @@ inline bool dfs_canonical(const char* colex, const size_t unset,
     return true;
 }
 
-inline bool is_canonical(const string& colex) {
-    // Fast check: check if colex has all its 0s on the front
-    size_t first_star = colex.find('*');
-    size_t last_zero = colex.rfind('0');
-    if (last_zero == string::npos || last_zero < first_star) {
-        return true;
-    }
-
+inline bool is_canonical(const char* colex) {
     // Main check: traverse (partial) permutations using DFS
     for (size_t r_set_ind = 0; r_set_ind < bnml; ++r_set_ind) {
         if (colex[r_set_to_j[r_set_ind]] != '0') {
@@ -62,8 +55,7 @@ inline bool is_canonical(const string& colex) {
             size_t perm_rep = r_set_to_perm_reps[r_set_ind * f[6] + i];
             const unsigned char* P_row = P[perm_rep];
             for (size_t j = 0; j < 5; ++j) {
-                if (!dfs_canonical(colex.data(), 4, P_row,
-                                   T[0] + j * f[5] * bnml)) {
+                if (!dfs_canonical(colex, 4, P_row, T[0] + j * f[5] * bnml)) {
                     return false;
                 }
             }
@@ -240,7 +232,7 @@ bool dfs_search(Node& node, F& on_extension) {
         // No more free planes - this is a complete linear subclass
         string M_ext =
             node.M->colex + extend_matroid_LS(*node.M, node.planes());
-        if (is_canonical(M_ext)) {
+        if (is_canonical(M_ext.data())) {
             on_extension(Matroid(10, 5, M_ext));
             return true;
         }

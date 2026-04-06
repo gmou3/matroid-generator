@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <iostream>
 #include <vector>
 
@@ -6,6 +7,7 @@
 #include "matroid.h"
 
 using namespace std;
+namespace fs = std::filesystem;
 
 vector<string> read_lines(const string& path, size_t from, size_t to) {
     ifstream file(path);
@@ -50,11 +52,13 @@ int main(int argc, char* argv[]) {
     open_files(left_lim, right_lim);
 
     // Get seed matroids
+    string repo_root =
+        fs::canonical(argv[0]).parent_path().parent_path().string();
     vector<string> IC_nm1 =
-        read_lines("seed-matroids/n09r05", left_lim, right_lim);
+        read_lines(repo_root + "/seed-matroids/n09r05", left_lim, right_lim);
     vector<string> IC_nm1_rm1;
     if (right_lim == 190215) {
-        IC_nm1_rm1 = read_lines("seed-matroids/n09r04", 0, 190214);
+        IC_nm1_rm1 = read_lines(repo_root + "/seed-matroids/n09r04", 0, 190214);
         right_lim--;
     }
 
