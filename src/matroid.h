@@ -24,9 +24,10 @@ class Matroid {
     mutable vector<bitset<N>> hyperplanes;
     mutable unordered_set<bitset<N>> taboo_hyperplanes;
     mutable vector<bitset<N>> hyperlines;
-    mutable vector<vector<size_t>> planes_to_lines;
-    mutable vector<vector<size_t>> lines_to_planes;
-    mutable unordered_map<bitset<N>, size_t> hyperplanes_index;
+    mutable vector<vector<unsigned char>> planes_to_lines;
+    mutable vector<vector<unsigned char>> lines_to_planes;
+    mutable unordered_map<bitset<N>, unsigned char> hyperplanes_index;
+    mutable vector<vector<unsigned char>> hyperplanes_to_zeros;
 
     Matroid(const size_t& n, const size_t& r, const string& colex)
         : n(n), r(r), colex(colex) {}
@@ -35,7 +36,7 @@ class Matroid {
     bitset<N> closure(const bitset<N>& F) const;
     void init_ind_sets_rm1() const;
     void init_hyperplanes() const;
-    void init_taboo_hyperplanes(const vector<bitset<N>>& R) const;
+    void init_taboo_hyperplanes() const;
     void init_hyperlines() const;
 
     Matroid coloop_extension() const {

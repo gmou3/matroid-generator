@@ -63,12 +63,12 @@ int main(int argc, char* argv[]) {
     }
 
     // Initialize mappings between indices and sets,
-    // and fill permutation array of size 10! * C(10, 5)
+    // and fill permutation array of size n! * C(n, r)
     initialize_combinatorics();
 
     // Process IC_nm1
     for (size_t i = 0; i < right_lim - left_lim; ++i) {
-        Matroid M(9, 5, IC_nm1[i]);
+        Matroid M(N - 1, R, IC_nm1[i]);
         // Iterate over all canonical extensions
         M.canonical_extensions(
             [&](Matroid M_ext) { output_matroid(M_ext, i); });
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 
     // Process IC_nm1_rm1
     for (const string& colex : IC_nm1_rm1) {
-        Matroid M(9, 4, colex);
+        Matroid M(N - 1, R - 1, colex);
         Matroid M_ext = M.coloop_extension();
         output_matroid(M_ext, right_lim - left_lim);
     }
