@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bitset>
+#include <cstdint>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -73,37 +74,16 @@ inline bool is_canonical(const string& colex, size_t n, size_t r) {
 }
 
 inline string extend_matroid_LS(const Matroid& M,
-                                const vector<size_t>& linear_subclass) {
-    // (r - 1)-sets whose extensions with n - 1 are to be marked '*'
-    vector<bitset<N>> target_sets;
-
-    // Iterate over independent (r - 1)-sets and add to target_sets if they
-    // aren't a subset of a hyperplane
-    for (const bitset<N>& I : M.ind_sets_rm1) {
-        bool flag = true;
-        for (const size_t& j : linear_subclass) {
-            if ((I & M.hyperplanes[j]) == I) {
-                flag = false;
-                break;
-            }
-        }
-        if (flag) {
-            target_sets.push_back(I);
+                                const vector<size_t>& linear_subclass,
+                                const string& base_colex_ext) {
+    // Mark appropriate positions with '0'
+    string colex_ext = base_colex_ext;
+    for (const size_t& j : linear_subclass) {
+        for (const uint16_t& pos : M.hyperplanes_to_zeros[j]) {
+            colex_ext[pos] = '0';
         }
     }
-
-    // Create extension result string of length C(n - 1, r - 1)
-    string ext_string(bnml_nm1_rm1, '0');
-
-    // Mark appropriate positions with '*'
-    for (bitset<N> target_set : target_sets) {
-        target_set.set(M.n);
-        size_t index =
-            set_to_index[target_set.to_ulong()] - bnml_nm1;  // - C(n - 1, r)
-        ext_string[index] = '*';
-    }
-
-    return ext_string;
+    return colex_ext;
 }
 
 inline size_t pop_back(vector<size_t>& v) {
@@ -217,10 +197,7 @@ inline void Node::remove_plane(const size_t& p) {
 
 inline size_t Node::select_plane() {
     // Find first free plane
-    for (size_t i = 0; i < M->hyperplanes.size(); ++i) {
-        if (p_free[i]) return i;
-    }
-    return M->hyperplanes.size();
+    return p_free._Find_first();
 }
 
 inline vector<size_t> Node::planes() const {
@@ -232,13 +209,14 @@ inline vector<size_t> Node::planes() const {
 }
 
 template <typename F>
-bool dfs_search(Node& node, F& on_extension) {
+bool dfs_search(Node& node, const string& base_colex_ext,
+                const uint16_t& last_zero, F& on_extension) {
     size_t p = node.select_plane();
 
-    if (p == node.M->hyperplanes.size()) {
+    if (p == N_H) {
         // No more free planes - this is a complete linear subclass
-        string M_ext =
-            node.M->colex + extend_matroid_LS(*node.M, node.planes());
+        string M_ext = node.M->colex + extend_matroid_LS(*node.M, node.planes(),
+                                                         base_colex_ext);
         if (is_canonical(M_ext, node.M->n + 1, node.M->r)) {
             on_extension(Matroid(node.M->n + 1, node.M->r, M_ext));
             return true;
@@ -249,13 +227,22 @@ bool dfs_search(Node& node, F& on_extension) {
     // Exclude plane p (continue with remaining planes)
     Node exclude_node(node);
     exclude_node.remove_plane(p);
-    bool exclusion_success = dfs_search(exclude_node, on_extension);
+    bool exclusion_success =
+        dfs_search(exclude_node, base_colex_ext, last_zero, on_extension);
 
-    if (exclusion_success) {
+    // If exclusion failed, and p adds zeros after the current last zero, we can
+    // skip checking the inclusion (guaranteed non-canonical)
+    if (exclusion_success || last_zero > node.M->hyperplanes_to_zeros[p][0]) {
         // Try including plane p
         Node include_node(node);
         if (include_node.insert_plane(p)) {
-            dfs_search(include_node, on_extension);
+            size_t pos = extend_matroid_LS(*node.M, include_node.planes(),
+                                           base_colex_ext)
+                             .rfind('0');
+            uint16_t new_last_zero =
+                (pos != std::string::npos) ? (uint16_t)pos : 0;
+            dfs_search(include_node, base_colex_ext, new_last_zero,
+                       on_extension);
         }
     }
 
@@ -273,15 +260,24 @@ void traverse_linear_subclasses(const Matroid& M, bool exclude_taboo,
     Node first_node(&M);
 
     if (exclude_taboo) {
-        M.init_taboo_hyperplanes(R);
+        M.init_taboo_hyperplanes();
         // Remove taboo hyperplanes
         for (bitset<N> T : M.taboo_hyperplanes) {
             first_node.remove_plane(M.hyperplanes_index[T]);
         }
     }
 
+    // Create base colex extension string of length C(n - 1, r - 1)
+    string base_colex_ext(bnml_nm1_rm1, '0');
+    for (bitset<N> I : M.ind_sets_rm1) {
+        I.set(M.n);
+        base_colex_ext[set_to_index[I.to_ulong()] - bnml_nm1] = '*';
+    }
+    size_t pos = base_colex_ext.rfind('0');
+    uint16_t last_zero = (pos != std::string::npos) ? (uint16_t)pos : 0;
+
     // Start DFS from the initial node
-    dfs_search(first_node, on_extension);
+    dfs_search(first_node, base_colex_ext, last_zero, on_extension);
 }
 
 template <typename F>

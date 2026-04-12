@@ -26,7 +26,6 @@ inline vector<uint16_t> C_r;  // binomials choose r (reversed)
 
 inline uint16_t set_to_index[1 << N];   // set from C([n], r) to index
 inline vector<bitset<N>> index_to_set;  // index to set from C([n], r)
-inline vector<bitset<N>> R;             // for taboo_hyperplanes calculation
 
 inline vector<uint16_t> r_set_to_j;        // colex position for check
 inline vector<size_t> r_set_to_perm_reps;  // all perm reps, grouped by r-set
@@ -152,13 +151,4 @@ inline void initialize_combinatorics(uint16_t n, uint16_t r) {
         }
         ++i;
     } while (next_permutation(perm.begin(), perm.end()));
-
-    // Initialize R: combos from C([n - 1], r) with n - 2
-    R.clear();
-    vector<bitset<N>> combos = combinations<N>(n - 1, r);
-    for (const bitset<N>& combo : combos) {
-        if (combo[n - 2]) {
-            R.push_back(combo);
-        }
-    }
 }

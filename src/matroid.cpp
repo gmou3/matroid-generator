@@ -91,9 +91,19 @@ void Matroid::init_hyperplanes() const {
     for (uint16_t i = 0; i < hyperplanes.size(); ++i) {
         hyperplanes_index[hyperplanes[i]] = i;
     }
+    hyperplanes_to_zeros.resize(hyperplanes.size());
+    for (bitset<N> I : ind_sets_rm1) {
+        for (uint16_t i = 0; i < hyperplanes.size(); ++i) {
+            if ((I & hyperplanes[i]) == I) {
+                I.set(n);
+                hyperplanes_to_zeros[i].push_back(set_to_index[I.to_ulong()] -
+                                                  bnml_nm1);
+            }
+        }
+    }
 }
 
-void Matroid::init_taboo_hyperplanes(const vector<bitset<N>>& R) const {
+void Matroid::init_taboo_hyperplanes() const {
     // Prop. 1
     uint16_t mx = 0;
     for (const bitset<N>& H : hyperplanes) {
@@ -108,18 +118,18 @@ void Matroid::init_taboo_hyperplanes(const vector<bitset<N>>& R) const {
     }
 
     // Prop. 2
-    for (const bitset<N> S : R) {
+    for (const bitset<N> S : combinations<N>(n - 1, r - 1)) {
         bitset<N> SS = S;
-        SS.reset(n - 1);            // remove n - 2
-        if (rank(S) < S.count()) {  // dependent
-            if (rank(SS) < SS.count()) {
+        SS.set(n - 1);                // add n - 2
+        if (rank(SS) < SS.count()) {  // dependent
+            if (rank(S) < S.count()) {
                 // forced '0' agreement
                 continue;
             }
             break;
         }
         // forced '*' agreement
-        taboo_hyperplanes.insert(closure(SS));
+        taboo_hyperplanes.insert(closure(S));
     }
 }
 
