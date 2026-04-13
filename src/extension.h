@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bitset>
+#include <cstddef>
 #include <cstdint>
 #include <unordered_map>
 #include <unordered_set>
@@ -73,33 +74,19 @@ inline bool is_canonical(const string& colex, size_t n, size_t r) {
     return true;
 }
 
-inline string extend_matroid_LS(const Matroid& M,
-                                const vector<size_t>& linear_subclass,
-                                const string& base_colex_ext) {
-    // Mark appropriate positions with '0'
-    string colex_ext = base_colex_ext;
-    for (const size_t& j : linear_subclass) {
-        for (const uint16_t& pos : M.hyperplanes_to_zeros[j]) {
-            colex_ext[pos] = '0';
-        }
-    }
-    return colex_ext;
-}
-
-inline size_t pop_back(vector<size_t>& v) {
-    size_t val = v.back();
-    v.pop_back();
+inline size_t pop_first(bitset<N_H>& b) {
+    size_t val = b._Find_first();
+    b.reset(val);
     return val;
 }
 
 class Node {
-   private:
+   public:
     bitset<N_H> p_free;  // Available hyperplanes
     bitset<N_H> p_in;    // Selected hyperplanes
     bitset<N_H> l0;      // Lines with 0 hyperplanes
     bitset<N_H> l1;      // Lines with 1 hyperplane
 
-   public:
     const Matroid* M;
 
     Node(const Matroid* M);
@@ -108,7 +95,6 @@ class Node {
     bool insert_plane(const size_t& p0);
     void remove_plane(const size_t& p0);
     size_t select_plane();
-    vector<size_t> planes() const;
 };
 
 inline Node::Node(const Matroid* M) : M(M) {
@@ -132,33 +118,34 @@ inline Node::Node(const Node& other)
       M(other.M) {}
 
 inline bool Node::insert_plane(const size_t& p) {
-    vector<size_t> p_stack = {p};
-    vector<size_t> l_stack;
+    bitset<N_H> p_stack;
+    p_stack.set(p);
+    bitset<N_H> l_stack;
     p_free.reset(p);
     p_in.set(p);
-    while (!p_stack.empty()) {
+    while (p_stack.any()) {
         // Process hyperplanes
-        while (!p_stack.empty()) {
-            size_t p = pop_back(p_stack);
+        while (p_stack.any()) {
+            size_t p = pop_first(p_stack);
             for (size_t l : M->planes_to_lines[p]) {
                 if (l0[l]) {
                     l0.reset(l);
                     l1.set(l);
                 } else if (l1[l]) {
                     l1.reset(l);
-                    l_stack.push_back(l);
+                    l_stack.set(l);
                 }
             }
         }
         // Process hyperlines
-        while (!l_stack.empty()) {
-            size_t l = pop_back(l_stack);
+        while (l_stack.any()) {
+            size_t l = pop_first(l_stack);
             for (size_t pl : M->lines_to_planes[l]) {
                 if (p_in[pl]) continue;
                 if (p_free[pl]) {
                     p_free.reset(pl);
                     p_in.set(pl);
-                    p_stack.push_back(pl);
+                    p_stack.set(pl);
                 } else {
                     return false;
                 }
@@ -169,54 +156,53 @@ inline bool Node::insert_plane(const size_t& p) {
 }
 
 inline void Node::remove_plane(const size_t& p) {
-    vector<size_t> p_stack = {p};
-    vector<size_t> l_stack;
+    bitset<N_H> p_stack;
+    p_stack.set(p);
+    bitset<N_H> l_stack;
     p_free.reset(p);
-    while (!p_stack.empty()) {
+    while (p_stack.any()) {
         // Process hyperplanes
-        while (!p_stack.empty()) {
-            size_t p = pop_back(p_stack);
+        while (p_stack.any()) {
+            size_t p = pop_first(p_stack);
             for (size_t l : M->planes_to_lines[p]) {
                 if (l1[l]) {
-                    l_stack.push_back(l);
+                    l_stack.set(l);
                 }
             }
         }
         // Process hyperlines
-        while (!l_stack.empty()) {
-            size_t l = pop_back(l_stack);
+        while (l_stack.any()) {
+            size_t l = pop_first(l_stack);
             for (size_t pl : M->lines_to_planes[l]) {
                 if (p_free[pl]) {
                     p_free.reset(pl);
-                    p_stack.push_back(pl);
+                    p_stack.set(pl);
                 }
             }
         }
     }
 }
 
-inline size_t Node::select_plane() {
-    // Find first free plane
-    return p_free._Find_first();
-}
-
-inline vector<size_t> Node::planes() const {
-    vector<size_t> result;
-    for (size_t i = 0; i < M->hyperplanes.size(); ++i) {
-        if (p_in[i]) result.push_back(i);
+inline string extend_matroid_LS(const Node& N, const string& base_colex_ext) {
+    // Mark appropriate positions with '0'
+    string colex_ext = base_colex_ext;
+    for (size_t i = N.p_in._Find_first(); i < N_H; i = N.p_in._Find_next(i)) {
+        for (const uint16_t& pos : N.M->hyperplanes_to_zeros[i]) {
+            colex_ext[pos] = '0';
+        }
     }
-    return result;
+    return colex_ext;
 }
 
 template <typename F>
 bool dfs_search(Node& node, const string& base_colex_ext,
-                const uint16_t& last_zero, F& on_extension) {
-    size_t p = node.select_plane();
+                const size_t& last_zero, F& on_extension) {
+    // Find first free plane
+    size_t p = node.p_free._Find_first();
 
     if (p == N_H) {
         // No more free planes - this is a complete linear subclass
-        string M_ext = node.M->colex + extend_matroid_LS(*node.M, node.planes(),
-                                                         base_colex_ext);
+        string M_ext = node.M->colex + extend_matroid_LS(node, base_colex_ext);
         if (is_canonical(M_ext, node.M->n + 1, node.M->r)) {
             on_extension(Matroid(node.M->n + 1, node.M->r, M_ext));
             return true;
@@ -236,11 +222,8 @@ bool dfs_search(Node& node, const string& base_colex_ext,
         // Try including plane p
         Node include_node(node);
         if (include_node.insert_plane(p)) {
-            size_t pos = extend_matroid_LS(*node.M, include_node.planes(),
-                                           base_colex_ext)
-                             .rfind('0');
-            uint16_t new_last_zero =
-                (pos != std::string::npos) ? (uint16_t)pos : 0;
+            size_t pos = extend_matroid_LS(include_node, base_colex_ext).rfind('0');
+            size_t new_last_zero = (pos != std::string::npos) ? pos : 0;
             dfs_search(include_node, base_colex_ext, new_last_zero,
                        on_extension);
         }
@@ -274,7 +257,7 @@ void traverse_linear_subclasses(const Matroid& M, bool exclude_taboo,
         base_colex_ext[set_to_index[I.to_ulong()] - bnml_nm1] = '*';
     }
     size_t pos = base_colex_ext.rfind('0');
-    uint16_t last_zero = (pos != std::string::npos) ? (uint16_t)pos : 0;
+    size_t last_zero = (pos != std::string::npos) ? pos : 0;
 
     // Start DFS from the initial node
     dfs_search(first_node, base_colex_ext, last_zero, on_extension);
