@@ -182,7 +182,7 @@ class SZReader {
 
         line_len = static_cast<size_t>(L32);
         cnt = static_cast<size_t>(count);
-        if (line_len == 0) return false;
+        if (line_len == 0 or cnt == 0) return false;
         remaining = count;
 
         // Calculate block size
@@ -223,8 +223,21 @@ class SZReader {
         return true;
     }
 
+    bool is_complete() {
+        // Check that stream ends after all lines are read
+        // Trying to read another byte should fail (EOF)
+        int c = file.peek();
+        return c == EOF;
+    }
+
+    size_t get_remaining() const { return remaining; }
+
+    size_t get_expected_count() const { return cnt; }
+
     string getinfo() {
-        return to_string(cnt) + " strings of length " + to_string(line_len);
+        string noun = (cnt == 1) ? "string" : "strings";
+        return to_string(cnt) + " " + noun + " of length " +
+               to_string(line_len);
     }
 
     void close() { file.close(); }
