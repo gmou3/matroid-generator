@@ -62,6 +62,10 @@ int main(int argc, char** argv) {
 
         if (get_info) {
             cout << reader.getinfo() << '\n';
+            if (reader.get_expected_count() == UINT64_MAX) {
+                cerr << "sz: file header is invalid (incomplete write)\n";
+                return 1;
+            }
             return 0;
         }
 
@@ -79,6 +83,20 @@ int main(int argc, char** argv) {
         string line;
         while (reader.getline(line)) {
             fout << line << '\n';
+        }
+        fout.flush();
+
+        if (reader.get_remaining() > 0) {
+            cerr << "sz: only read "
+                 << (reader.get_expected_count() - reader.get_remaining())
+                 << " out of " << reader.get_expected_count()
+                 << " expected strings\n";
+            return 1;
+        }
+
+        if (!reader.is_complete()) {
+            cerr << "sz: failed to reach EOF\n";
+            return 1;
         }
     } else {
         SZWriter writer;
