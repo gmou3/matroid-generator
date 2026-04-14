@@ -12,48 +12,42 @@
 
 using namespace std;
 
-inline bool dfs_canonical(const char* colex, const size_t unset,
-                          const uint16_t* P_row, const uint16_t* T_row) {
+inline uint16_t dfs_canonical(const char* colex, const size_t unset,
+                              const uint16_t* P_row, const uint16_t* T_row) {
     // The variable `unset` stores the number of undetermined positions at the
     // end of the current partial permutation sigma. sigma is viewed inversely
     // (sigma[k] becomes k).
 
     // Check new determinable sets from partial sigma:
     // Loop through positions C(n - unset - 1, r) to C(n - unset, r).
-    for (size_t j = C_r[unset + 1]; j < C_r[unset]; ++j) {
+    for (uint16_t j = C_r[unset + 1]; j < C_r[unset]; ++j) {
         if (colex[P_row[T_row[j]]] != colex[j]) {
             if (colex[j] == '*') {
-                return false;  // Not canonical
+                return j;  // Not canonical
             }
-            return true;  // Prune
+            return bnml;  // Prune
         }
     }
 
     // Complete sigma checked
     if (unset == 0) {
-        return true;
+        return bnml;
     }
 
     // Build one more position in partial sigma
     for (size_t i = 0; i < unset; ++i) {
         // Increment perm_id by (unset - 1)! as we skip a smaller element
-        if (!dfs_canonical(colex, unset - 1, P_row,
-                           T_row + i * f[unset] * bnml)) {
-            return false;
-        }
+        uint16_t j_fail =
+            dfs_canonical(colex, unset - 1, P_row, T_row + i * f[unset] * bnml);
+        if (j_fail != bnml) return j_fail;
     }
 
-    return true;
+    return bnml;
 }
 
-inline bool is_canonical(const string& colex, size_t n, size_t r) {
-    // Fast check: check if colex has all its 0s on the front
-    size_t first_star = colex.find('*');
-    size_t last_zero = colex.rfind('0');
-    if (last_zero == string::npos || last_zero < first_star) {
-        return true;
-    }
-
+inline uint16_t is_canonical(const char* colex, size_t n, size_t r) {
+    // Return first detected position of failure ('*' -> '0'),
+    // or bnml if no such position exists (canonical)
     // Main check: traverse (partial) permutations using DFS
     for (size_t r_set_idx = 0; r_set_idx < bnml; ++r_set_idx) {
         if (colex[r_set_to_j[r_set_idx]] != '0') {
@@ -63,15 +57,14 @@ inline bool is_canonical(const string& colex, size_t n, size_t r) {
             size_t perm_rep = r_set_to_perm_reps[r_set_idx * f[r + 1] + i];
             uint16_t* P_row = P + perm_rep * bnml;
             for (size_t j = 0; j < n - r; ++j) {
-                if (!dfs_canonical(colex.data(), n - r - 1, P_row,
-                                   T + j * f[n - r] * bnml)) {
-                    return false;
-                }
+                uint16_t j_fail = dfs_canonical(colex, n - r - 1, P_row,
+                                                T + j * f[n - r] * bnml);
+                if (j_fail != bnml) return j_fail;
             }
         }
     }
 
-    return true;
+    return bnml;
 }
 
 inline size_t pop_first(bitset<N_H>& b) {
@@ -195,41 +188,37 @@ inline string extend_matroid_LS(const Node& N, const string& base_colex_ext) {
 }
 
 template <typename F>
-bool dfs_search(Node& node, const string& base_colex_ext,
-                const size_t& last_zero, F& on_extension) {
-    // Find first free plane
+uint16_t dfs_search(Node& node, const string& base_colex_ext, F& on_extension) {
+    // Find first free plane (ordered by first independent (r - 1)-subset)
     size_t p = node.p_free._Find_first();
 
     if (p == N_H) {
         // No more free planes - this is a complete linear subclass
         string M_ext = node.M->colex + extend_matroid_LS(node, base_colex_ext);
-        if (is_canonical(M_ext, node.M->n + 1, node.M->r)) {
+        uint16_t j_fail = is_canonical(M_ext.data(), node.M->n + 1, node.M->r);
+        if (j_fail == bnml) {  // Canonical matroid
             on_extension(Matroid(node.M->n + 1, node.M->r, M_ext));
-            return true;
         }
-        return false;
+        return j_fail;
     }
 
     // Exclude plane p (continue with remaining planes)
     Node exclude_node(node);
     exclude_node.remove_plane(p);
-    bool exclusion_success =
-        dfs_search(exclude_node, base_colex_ext, last_zero, on_extension);
+    uint16_t exclusion_j_fail =
+        dfs_search(exclude_node, base_colex_ext, on_extension);
 
-    // If exclusion failed, and p adds zeros after the current last zero, we can
-    // skip checking the inclusion (guaranteed non-canonical)
-    if (exclusion_success || last_zero > node.M->hyperplanes_to_zeros[p][0]) {
+    // If p adds zeros only after a current position of failure, we can skip
+    // checking the inclusion branch (guaranteed non-canonical)
+    if (exclusion_j_fail >= bnml_nm1 + node.M->hyperplanes_to_zeros[p][0]) {
         // Try including plane p
         Node include_node(node);
         if (include_node.insert_plane(p)) {
-            size_t pos = extend_matroid_LS(include_node, base_colex_ext).rfind('0');
-            size_t new_last_zero = (pos != std::string::npos) ? pos : 0;
-            dfs_search(include_node, base_colex_ext, new_last_zero,
-                       on_extension);
+            dfs_search(include_node, base_colex_ext, on_extension);
         }
     }
 
-    return exclusion_success;
+    return exclusion_j_fail;
 }
 
 template <typename F>
@@ -256,11 +245,9 @@ void traverse_linear_subclasses(const Matroid& M, bool exclude_taboo,
         I.set(M.n);
         base_colex_ext[set_to_index[I.to_ulong()] - bnml_nm1] = '*';
     }
-    size_t pos = base_colex_ext.rfind('0');
-    size_t last_zero = (pos != std::string::npos) ? pos : 0;
 
     // Start DFS from the initial node
-    dfs_search(first_node, base_colex_ext, last_zero, on_extension);
+    dfs_search(first_node, base_colex_ext, on_extension);
 }
 
 template <typename F>
