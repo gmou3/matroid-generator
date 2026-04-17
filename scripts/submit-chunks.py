@@ -89,21 +89,21 @@ def process_chunk(base_url: str, api_token: str, cleanup: bool = False) -> str:
         else:
             return f"FAIL chunk {chunk_id}: validation failed after {MAX_IC_ATTEMPTS} attempts"
 
-        # 5. Compute sha256 of the .sz file.
+        # 3. Compute sha256 of the .sz file.
         sz_sha = hashlib.sha256()
         with open(sz_file, "rb") as f:
             for block in iter(lambda: f.read(1 << 16), b""):
                 sz_sha.update(block)
         sz_digest_hex = sz_sha.hexdigest()
 
-        # 6. Compute sha256 of the .xz file.
+        # 4. Compute sha256 of the .xz file.
         xz_sha = hashlib.sha256()
         with open(xz_file, "rb") as f:
             for block in iter(lambda: f.read(1 << 16), b""):
                 xz_sha.update(block)
         digest_hex = xz_sha.hexdigest()
 
-        # 6. Submit.
+        # 5. Submit.
         with open(xz_file, "rb") as f:
             body = f.read()
 
