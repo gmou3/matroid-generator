@@ -4,11 +4,13 @@ Download previously-submitted chunks from the matroid enumeration server
 and run validation checks on them.
 
 Usage:
-    python3 scripts/validate_chunks.py --start N --end M [--base-url URL]
+    python3 scripts/validate-chunks.py --start N --end M [--base-url URL]
                                        [--delete-on-failure --api-token-file PATH]
 
 Both --start and --end are inclusive.
 """
+
+from __future__ import annotations
 
 import argparse
 import hashlib
