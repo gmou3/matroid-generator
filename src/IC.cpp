@@ -30,7 +30,6 @@ vector<string> IC(uint16_t n, uint16_t r, bool top_level = true) {
         index_to_set.resize(binomial(n, r));
         f.resize(n + 1);
         C_r.resize(n + 2);
-        r_set_to_j.resize(binomial(n, r));
         r_set_to_perm_reps.resize(binomial(n, r) * factorial(r));
     }
 

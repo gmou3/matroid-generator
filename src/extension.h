@@ -50,7 +50,7 @@ inline uint16_t is_canonical(const char* colex, size_t n, size_t r) {
     // or bnml if no such position exists (canonical)
     // Main check: traverse (partial) permutations using DFS
     for (size_t r_set_idx = 0; r_set_idx < bnml; ++r_set_idx) {
-        if (colex[r_set_to_j[r_set_idx]] != '0') {
+        if (colex[r_set_idx] != '0') {
             continue;
         }
         for (size_t i = 0; i < f[r + 1]; ++i) {

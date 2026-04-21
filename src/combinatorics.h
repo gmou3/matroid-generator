@@ -27,7 +27,6 @@ inline vector<uint16_t> C_r;  // binomials choose r (reversed)
 inline uint16_t set_to_index[1 << N];   // set from C([n], r) to index
 inline vector<bitset<N>> index_to_set;  // index to set from C([n], r)
 
-inline vector<uint16_t> r_set_to_j;        // colex position for check
 inline vector<size_t> r_set_to_perm_reps;  // all perm reps, grouped by r-set
 
 template <uint16_t N>
@@ -147,7 +146,6 @@ inline void initialize_combinatorics(uint16_t n, uint16_t r) {
         if (rest_sorted) {
             size_t ind = r_set_counts[r_set_idx]++;
             r_set_to_perm_reps[r_set_idx * f[r + 1] + ind] = i / f[n - r + 1];
-            if (ind == 0) r_set_to_j[r_set_idx] = apply_perm(perm, 0);
         }
         ++i;
     } while (next_permutation(perm.begin(), perm.end()));
