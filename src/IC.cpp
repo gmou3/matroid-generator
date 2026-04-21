@@ -25,15 +25,15 @@ vector<string> read_lines(const string& path, size_t from, size_t to) {
 
 int main(int argc, char* argv[]) {
     if (argc < 2 || argc > 3) {
-        cout << "Hardcoded (10, 5)-matroid-generator.\n"
-             << "Requires `seed-matroids/n09r04-5`.\n"
+        cout << "Hardcoded (10, 4)-matroid-generator.\n"
+             << "Requires `seed-matroids/n09r03-4`.\n"
              << "Usage: " << argv[0] << " <left_lim> [<right_lim>]\n"
              << "The limits refer to seed matroid indices: 0 to 190214. If not "
                 "provided, `right_lim = left_lim + 1`.\n"
              << "Any index `i` less than 190214 produces the canonical "
-                "extensions of the `i`-th (9, 5)-matroid.\n"
+                "extensions of the `i`-th (9, 4)-matroid.\n"
              << "The 190214 upper limit is inclusive and produces the "
-                "extensions by a coloop of all (9, 4)-matroids.\n";
+                "extensions by a coloop of all (9, 3)-matroids.\n";
         return 1;
     }
 
@@ -55,10 +55,10 @@ int main(int argc, char* argv[]) {
     string repo_root =
         fs::canonical(argv[0]).parent_path().parent_path().string();
     vector<string> IC_nm1 =
-        read_lines(repo_root + "/seed-matroids/n09r05", left_lim, right_lim);
+        read_lines(repo_root + "/seed-matroids/n09r04", left_lim, right_lim);
     vector<string> IC_nm1_rm1;
     if (right_lim == 190215) {
-        IC_nm1_rm1 = read_lines(repo_root + "/seed-matroids/n09r04", 0, 190214);
+        IC_nm1_rm1 = read_lines(repo_root + "/seed-matroids/n09r03", 0, 1275);
         right_lim--;
     }
 

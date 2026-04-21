@@ -35,7 +35,7 @@ do
     # Sanity checks
     "$szcat" "$sz_file" | sort -c
     str_len=$("$szcat" -i "$sz_file" | awk '{print $5}')
-    if [ "$str_len" -ne "252" ]; then
+    if [ "$str_len" -ne "210" ]; then
         echo "$seed_idx: line length is not C(10, 5) = 252"
     fi
     cnt_szcat_i=$("$szcat" -i "$sz_file" | awk '{print $1}')

@@ -15,7 +15,7 @@ namespace fs = filesystem;
 // Generate filename based on the index of the seed matroid
 inline string generate_filename(size_t seed_matroid_idx) {
     stringstream filename;
-    filename << "output/n10r05-seedmatroid" << setw(6) << setfill('0')
+    filename << "output/n10r04-seedmatroid" << setw(6) << setfill('0')
              << seed_matroid_idx << ".sz";
     return filename.str();
 }
