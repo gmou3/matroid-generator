@@ -24,7 +24,6 @@ struct SeedMatroid {
     unique_ptr<SZWriter> sz_writer;
     string filename;
 
-    // void open_files(size_t n, size_t r, int thread_num) {
     void open_files(size_t seed_matroid_idx) {
         filename = generate_filename(seed_matroid_idx);
         sz_writer = make_unique<SZWriter>();
@@ -37,8 +36,7 @@ struct SeedMatroid {
 };
 vector<SeedMatroid> seed_matroid;
 
-// Open colex and .idx files (one pair per thread)
-// void open_files(size_t seed_matroid_idx, int threads) {
+// Open colex files (one pair per thread)
 void open_files(size_t left_lim, size_t right_lim) {
     if (!fs::exists("output")) fs::create_directory("output");
     seed_matroid.resize(right_lim - left_lim);
@@ -46,7 +44,7 @@ void open_files(size_t left_lim, size_t right_lim) {
         seed_matroid[i - left_lim].open_files(i);
 }
 
-// Output matroid either to file or to stdout
+// Output matroid either to SZ file
 inline void output_matroid(const Matroid& M, const size_t& index) {
     auto& ts = seed_matroid[index];
     ts.write_colex(M.colex);

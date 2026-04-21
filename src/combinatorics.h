@@ -30,7 +30,6 @@ constexpr unsigned char C_r[12] = {252, 126, 56, 21, 6, 1, 0, 0, 0, 0, 0, 0};
 inline unsigned char set_to_index[1024];  // set from C([n], r) to index
 inline bitset<N> index_to_set[252];       // index to set from C([n], r)
 
-inline unsigned char r_set_to_j[252];     // colex position for check
 inline size_t r_set_to_perm_reps[30240];  // all perm_reps, grouped by r_set
 
 template <size_t N>
@@ -138,7 +137,6 @@ inline void initialize_combinatorics() {
         if (rest_sorted) {
             size_t ind = r_set_counts[r_set_idx]++;
             r_set_to_perm_reps[r_set_idx * f[R + 1] + ind] = i / f[N - R + 1];
-            if (ind == 0) r_set_to_j[r_set_idx] = apply_perm(perm, 0);
         }
         ++i;
     } while (next_permutation(perm.begin(), perm.end()));
