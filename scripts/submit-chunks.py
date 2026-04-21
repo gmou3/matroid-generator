@@ -33,8 +33,17 @@ IC_BIN = PROJECT_ROOT / "build" / "IC"
 MAX_IC_ATTEMPTS = 3
 
 
-def process_chunk(base_url: str, api_token: str, cleanup: bool = False) -> str:
-    """Get an assignment, run IC, compress, and submit. Returns a status string."""
+def process_chunk(base_url, api_token, cleanup=False):
+    """Get an assignment, run IC, compress, and submit. Returns a status string.
+
+    Args:
+        base_url (str): server base URL, no trailing slash.
+        api_token (str): bearer token for Authorization header.
+        cleanup (bool): if True, delete local .sz / .xz files after successful submit.
+
+    Returns:
+        str: a single-line status message prefixed with OK / FAIL / SKIP.
+    """
 
     # 1. Get a chunk assignment.
     req = urllib.request.Request(

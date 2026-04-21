@@ -10,8 +10,6 @@ Usage:
 Both --start and --end are inclusive.
 """
 
-from __future__ import annotations
-
 import argparse
 import hashlib
 import http.client
@@ -33,8 +31,17 @@ HTTP_MAX_ATTEMPTS = 4
 HTTP_RETRY_DELAY = 2.0  # seconds, doubled on each retry
 
 
-def urlopen_with_retry(req, chunk_id: int, what: str):
-    """Open `req`, retrying on 5xx and network errors. Raises on final failure."""
+def urlopen_with_retry(req, chunk_id, what):
+    """Open `req`, retrying on 5xx and network errors. Raises on final failure.
+
+    Args:
+        req (urllib.request.Request): the HTTP request to open.
+        chunk_id (int): chunk index, used only for log messages.
+        what (str): short label for the operation, used only for log messages.
+
+    Returns:
+        http.client.HTTPResponse
+    """
     delay = HTTP_RETRY_DELAY
     for attempt in range(1, HTTP_MAX_ATTEMPTS + 1):
         try:
@@ -56,8 +63,15 @@ def urlopen_with_retry(req, chunk_id: int, what: str):
         delay *= 2
 
 
-def delete_chunk(base_url: str, chunk_id: int, xz_hash: str, api_token: str) -> str:
-    """Ask the server to delete a chunk. Returns a status message."""
+def delete_chunk(base_url, chunk_id, xz_hash, api_token):
+    """Ask the server to delete a chunk. Returns a status message (str).
+
+    Args:
+        base_url (str): server base URL, no trailing slash.
+        chunk_id (int): chunk index to delete.
+        xz_hash (str): hex sha256 of the .xz file (the server verifies this).
+        api_token (str): bearer token for Authorization header.
+    """
     url = f"{base_url}/delete-chunk/{chunk_id}?hash={xz_hash}"
     req = urllib.request.Request(
         url,
@@ -76,16 +90,25 @@ def delete_chunk(base_url: str, chunk_id: int, xz_hash: str, api_token: str) -> 
         return f"delete error: {type(e).__name__}: {e}"
 
 
-def validate_one(
-    base_url: str,
-    chunk_id: int,
-    delete_on_failure: bool,
-    api_token: str | None,
-) -> bool:
-    """Validate one chunk. Prints status lines; returns True on success."""
+def validate_one(base_url, chunk_id, delete_on_failure, api_token):
+    """Validate one chunk. Prints status lines; returns True on success (bool).
+
+    Args:
+        base_url (str): server base URL, no trailing slash.
+        chunk_id (int): chunk index to fetch and validate.
+        delete_on_failure (bool): if True, request server-side deletion on failure.
+        api_token (str or None): bearer token; required iff delete_on_failure.
+    """
     url = f"{base_url}/chunk/{chunk_id}"
 
-    def fail(msg: str, xz_path: Path | None = None) -> bool:
+    def fail(msg, xz_path=None):
+        """Log a failure and (optionally) ask the server to delete the chunk.
+
+        Args:
+            msg (str): failure reason to include in the log line.
+            xz_path (pathlib.Path or None): path to the downloaded .xz file,
+                needed to compute the hash for the delete request.
+        """
         print(f"FAIL chunk {chunk_id}: {msg}", flush=True)
         if delete_on_failure and xz_path is not None:
             xz_sha = hashlib.sha256()
