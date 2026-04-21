@@ -92,17 +92,22 @@ def urlopen_with_retry(req, what):
         time.sleep(delay)
 
 
-def process_chunk(base_url, api_token, cleanup=False):
+def process_chunk(base_url, api_token, cleanup=False, initial_delay=0.0):
     """Get an assignment, run IC, compress, and submit. Returns a status string.
 
     Args:
         base_url (str): server base URL, no trailing slash.
         api_token (str): bearer token for Authorization header.
         cleanup (bool): if True, delete local .sz / .xz files after successful submit.
+        initial_delay (float): seconds to sleep before the first network call.
+            Used to stagger workers at startup so they don't all hit
+            /new-assignment simultaneously.
 
     Returns:
         str: a single-line status message prefixed with OK / FAIL / SKIP.
     """
+    if initial_delay > 0:
+        time.sleep(initial_delay)
 
     # 1. Get a chunk assignment.
     req = urllib.request.Request(
@@ -256,9 +261,14 @@ def main():
         pending = set()
         submitted = 0
 
-        # Seed the pool.
-        for _ in range(min(args.workers, args.chunks)):
-            pending.add(pool.submit(process_chunk, args.base_url, api_token, args.cleanup))
+        # Seed the pool. Stagger the initial wave by 0.5s per worker so they
+        # don't all hit /new-assignment at the same instant.
+        initial_count = min(args.workers, args.chunks)
+        for i in range(initial_count):
+            delay = 0.5 * i
+            pending.add(pool.submit(
+                process_chunk, args.base_url, api_token, args.cleanup, delay,
+            ))
             submitted += 1
 
         while pending:
