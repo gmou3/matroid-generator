@@ -10,9 +10,11 @@ Usage:
 import argparse
 import getpass
 import hashlib
+import http.client
 import json
 import os
 import platform
+import random
 import subprocess
 import sys
 import time
@@ -33,6 +35,61 @@ OUTPUT_DIR = Path("output")
 IC_BIN = PROJECT_ROOT / "build" / "IC"
 
 MAX_IC_ATTEMPTS = 3
+
+HTTP_MAX_ATTEMPTS = 4
+HTTP_RETRY_BASE_DELAY = 2.0  # seconds; exponential with full jitter
+
+
+def _is_retryable_status(code):
+    """Return True for HTTP status codes we should retry (5xx and 429)."""
+    return code >= 500 or code == 429
+
+
+def urlopen_with_retry(req, what):
+    """Open `req`, retrying on retryable HTTP statuses and network errors.
+
+    Retryable HTTP statuses are 5xx and 429. Backoff is exponential with full
+    jitter: the nth sleep is drawn uniformly from
+    [0, HTTP_RETRY_BASE_DELAY * 2**(n-1)] seconds. If the response carries a
+    Retry-After header (delta-seconds form), that value is used instead, plus
+    a small random jitter. Other 4xx errors are raised immediately. Raises on
+    final failure.
+
+    Args:
+        req (urllib.request.Request): the HTTP request to open.
+        what (str): short label for the operation, used only for log messages.
+
+    Returns:
+        http.client.HTTPResponse
+    """
+    for attempt in range(1, HTTP_MAX_ATTEMPTS + 1):
+        override_delay = None
+        try:
+            return urllib.request.urlopen(req)
+        except urllib.error.HTTPError as e:
+            if not _is_retryable_status(e.code) or attempt == HTTP_MAX_ATTEMPTS:
+                raise
+            reason = f"returned {e.code}"
+            retry_after = e.headers.get("Retry-After") if e.headers else None
+            if retry_after:
+                try:
+                    override_delay = max(0.0, float(retry_after))
+                except ValueError:
+                    pass  # HTTP-date form; fall back to jitter backoff
+        except (urllib.error.URLError, http.client.HTTPException, OSError) as e:
+            if attempt == HTTP_MAX_ATTEMPTS:
+                raise
+            reason = f"network error ({type(e).__name__}: {e})"
+        if override_delay is not None:
+            delay = override_delay + random.uniform(0, 1)
+        else:
+            delay = random.uniform(0, HTTP_RETRY_BASE_DELAY * (2 ** (attempt - 1)))
+        print(
+            f"RETRY {what}: {reason}, retrying in {delay:.1f}s "
+            f"({attempt}/{HTTP_MAX_ATTEMPTS - 1})",
+            flush=True,
+        )
+        time.sleep(delay)
 
 
 def process_chunk(base_url, api_token, cleanup=False):
@@ -57,11 +114,14 @@ def process_chunk(base_url, api_token, cleanup=False):
         },
     )
     try:
-        with urllib.request.urlopen(req) as resp:
+        with urlopen_with_retry(req, "/new-assignment") as resp:
             body = json.loads(resp.read().decode())
             chunk_id = body["index"]
     except urllib.error.HTTPError as e:
-        return f"SKIP: server returned {e.code} for /new-assignment ({e.read().decode().strip()})"
+        status = "FAIL" if _is_retryable_status(e.code) else "SKIP"
+        return f"{status}: server returned {e.code} for /new-assignment ({e.read().decode().strip()})"
+    except (urllib.error.URLError, http.client.HTTPException, OSError) as e:
+        return f"FAIL: /new-assignment error: {type(e).__name__}: {e}"
 
     padded = f"{chunk_id:06d}"
     sz_file = OUTPUT_DIR / f"n10r05-seedmatroid{padded}.sz"
@@ -141,7 +201,7 @@ def process_chunk(base_url, api_token, cleanup=False):
             method="POST",
             headers=headers,
         )
-        with urllib.request.urlopen(submit_req) as resp:
+        with urlopen_with_retry(submit_req, f"submit chunk {chunk_id}") as resp:
             resp_body = resp.read().decode().strip()
 
         if cleanup:
