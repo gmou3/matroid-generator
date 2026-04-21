@@ -15,6 +15,7 @@ import os
 import platform
 import subprocess
 import sys
+import time
 import urllib.request
 import urllib.error
 from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
@@ -68,13 +69,18 @@ def process_chunk(base_url, api_token, cleanup=False):
     try:
         # 2. Run IC + compress + validate, with retries if validation fails.
         matroid_count = None
+        ic_elapsed = 0.0
+        ic_ran = False
         for attempt in range(1, MAX_IC_ATTEMPTS + 1):
             if not sz_file.exists():
+                ic_start = time.monotonic()
                 subprocess.run(
                     [str(IC_BIN), str(chunk_id)],
                     check=True,
                     cwd=str(PROJECT_ROOT),
                 )
+                ic_elapsed += time.monotonic() - ic_start
+                ic_ran = True
             if not sz_file.exists():
                 return f"FAIL chunk {chunk_id}: IC did not produce {sz_file.name}"
 
@@ -116,20 +122,24 @@ def process_chunk(base_url, api_token, cleanup=False):
         with open(xz_file, "rb") as f:
             body = f.read()
 
+        headers = {
+            "Content-Type": "application/octet-stream",
+            "Content-Digest": f"sha-256={digest_hex}",
+            "X-Sz-Hash": sz_digest_hex,
+            "X-Matroid-Count": matroid_count,
+            "X-User": getpass.getuser(),
+            "X-Host": platform.node(),
+            "User-Agent": USER_AGENT,
+            "Authorization": f"Bearer {api_token}",
+        }
+        if ic_ran and ic_elapsed > 0:
+            headers["X-Matroids-Per-Second"] = f"{count / ic_elapsed:.2f}"
+
         submit_req = urllib.request.Request(
             f"{base_url}/matroids/{chunk_id}",
             data=body,
             method="POST",
-            headers={
-                "Content-Type": "application/octet-stream",
-                "Content-Digest": f"sha-256={digest_hex}",
-                "X-Sz-Hash": sz_digest_hex,
-                "X-Matroid-Count": matroid_count,
-                "X-User": getpass.getuser(),
-                "X-Host": platform.node(),
-                "User-Agent": USER_AGENT,
-                "Authorization": f"Bearer {api_token}",
-            },
+            headers=headers,
         )
         with urllib.request.urlopen(submit_req) as resp:
             resp_body = resp.read().decode().strip()
