@@ -10,19 +10,31 @@ SZXZCAT = PROJECT_ROOT / "scripts" / "szxzcat.sh"
 EXPECTED_LINE_LEN = 252  # C(10, 5)
 
 
-def parse_sz_info(info: str) -> tuple[int, int]:
-    """Parse output of 'szcat -i', e.g. '3339058 strings of length 252'."""
+def parse_sz_info(info):
+    """Parse output of 'szcat -i', e.g. '3339058 strings of length 252'.
+
+    Args:
+        info (str): the stdout line from 'szcat -i'.
+
+    Returns:
+        tuple of (count: int, line_length: int).
+    """
     fields = info.split()
     return int(fields[0]), int(fields[4])
 
 
-def validate_sz_files(sz_file: Path, xz_file: Path) -> tuple[bool, str, int]:
+def validate_sz_files(sz_file, xz_file):
     """Run sanity checks on .sz and .sz.xz files.
 
-    Returns (ok, message, matroid_count). On failure, message describes the
-    first problem found. A subprocess failure (e.g. a corrupted file causing
-    szcat to exit non-zero) is reported as a validation failure rather than
-    propagated as an exception.
+    Args:
+        sz_file (pathlib.Path): path to the uncompressed .sz file.
+        xz_file (pathlib.Path): path to the .sz.xz file.
+
+    Returns:
+        tuple of (ok: bool, message: str, matroid_count: int). On failure,
+        message describes the first problem found. A subprocess failure
+        (e.g. a corrupted file causing szcat to exit non-zero) is reported
+        as a validation failure rather than propagated as an exception.
     """
     try:
         szcat_i = subprocess.run(
