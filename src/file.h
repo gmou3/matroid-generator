@@ -1,9 +1,11 @@
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <queue>
 #include <sstream>
+#include <unistd.h>
 #include <vector>
 
 #include "matroid.h"
@@ -23,16 +25,32 @@ inline string generate_filename(size_t seed_matroid_idx) {
 struct SeedMatroid {
     unique_ptr<SZWriter> sz_writer;
     string filename;
+    string tmp_filename;
 
     void open_files(size_t seed_matroid_idx) {
         filename = generate_filename(seed_matroid_idx);
+
+        // Create temp file in the same directory using mkstemps
+        fs::path final_path(filename);
+        string tmpl = final_path.parent_path().string() + "/"
+                    + final_path.stem().string() + ".partial.XXXXXX.sz";
+        vector<char> buf(tmpl.begin(), tmpl.end());
+        buf.push_back('\0');
+        int fd = mkstemps(buf.data(), 3);  // 3 = strlen(".sz")
+        if (fd < 0) throw runtime_error("mkstemps failed");
+        ::close(fd);
+        tmp_filename = string(buf.data());
+
         sz_writer = make_unique<SZWriter>();
-        sz_writer->open(filename);
+        sz_writer->open(tmp_filename);
     }
 
     void write_colex(const string& line) { sz_writer->write(line); }
 
-    void close_files() { sz_writer->close(); }
+    void close_files() {
+        sz_writer->close();
+        fs::rename(tmp_filename, filename);
+    }
 };
 vector<SeedMatroid> seed_matroid;
 
