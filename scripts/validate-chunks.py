@@ -125,9 +125,11 @@ def validate_one(base_url, chunk_id, delete_on_failure, api_token):
         sz_path = Path(tmpdir) / f"n10r05-seedmatroid{chunk_id:06d}.sz"
 
         req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        server_count_header = None
         try:
             with urlopen_with_retry(req, chunk_id, "download") as resp, \
                  open(xz_path, "wb") as f:
+                server_count_header = resp.headers.get("X-Matroid-Count")
                 while True:
                     block = resp.read(1 << 16)
                     if not block:
@@ -149,11 +151,26 @@ def validate_one(base_url, chunk_id, delete_on_failure, api_token):
 
         ok, msg, count = validate_sz_files(sz_path, xz_path)
 
-        if ok:
-            print(f"OK   chunk {chunk_id}: {count} matroids", flush=True)
-            return True
+        if not ok:
+            return fail(msg, xz_path)
 
-        return fail(msg, xz_path)
+        if server_count_header is None:
+            return fail("server response missing X-Matroid-Count header", xz_path)
+        try:
+            server_count = int(server_count_header)
+        except ValueError:
+            return fail(
+                f"server X-Matroid-Count header is not an integer: {server_count_header!r}",
+                xz_path,
+            )
+        if server_count != count:
+            return fail(
+                f"X-Matroid-Count header ({server_count}) != local count ({count})",
+                xz_path,
+            )
+
+        print(f"OK   chunk {chunk_id}: {count} matroids", flush=True)
+        return True
 
 
 def main():
