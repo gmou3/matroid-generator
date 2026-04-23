@@ -28,7 +28,8 @@ USER_AGENT = "matroid-generator/submit-chunks"
 
 DEFAULT_BASE_URL = "https://matroid-enumeration.icarm.workers.dev"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-OUTPUT_DIR = PROJECT_ROOT / "output"
+# IC writes to ./output relative to its CWD (see src/file.h), so mirror that here.
+OUTPUT_DIR = Path("output")
 IC_BIN = PROJECT_ROOT / "build" / "IC"
 
 MAX_IC_ATTEMPTS = 3
@@ -77,7 +78,6 @@ def process_chunk(base_url, api_token, cleanup=False):
                 subprocess.run(
                     [str(IC_BIN), str(chunk_id)],
                     check=True,
-                    cwd=str(PROJECT_ROOT),
                 )
                 ic_elapsed += time.monotonic() - ic_start
                 ic_ran = True
