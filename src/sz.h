@@ -87,30 +87,32 @@ class SZWriter {
     int B;
     uint64_t count;
     bool first_line;
+    bool streaming;
     string prev;  // stored as original '0'/'*' chars for diff tracking
 
    public:
-    SZWriter() : line_len(0), B(0), count(0), first_line(true) {}
+    SZWriter()
+        : line_len(0), B(0), count(0), first_line(true), streaming(false) {}
 
-    bool open(const string& filename) {
-        file.open(filename, ios::binary);
+    bool open(const string& filename, bool streaming = false) {
+        this->streaming = streaming;
+        if (filename == "-")
+            file.open("/dev/stdout", ios::binary);
+        else
+            file.open(filename, ios::binary);
         if (!file.is_open()) return false;
-        // Placeholder header: line length (u32), count (u64)
-        uint32_t L32 = 0;
-        uint64_t cnt = UINT64_MAX;  // sentinel meaning "in progress"
-        file.write(reinterpret_cast<const char*>(&L32), sizeof(L32));
-        file.write(reinterpret_cast<const char*>(&cnt), sizeof(cnt));
+
         return true;
     }
 
     void write(const string& data) {
         if (first_line) {
+            // Write header: line length and placeholder count
             line_len = data.size();
-            // Update the header with the true line length
             uint32_t L32 = static_cast<uint32_t>(line_len);
-            file.seekp(0, ios::beg);
+            uint64_t cnt = UINT64_MAX;  // sentinel meaning "in progress"
             file.write(reinterpret_cast<const char*>(&L32), sizeof(L32));
-            file.seekp(0, ios::end);
+            file.write(reinterpret_cast<const char*>(&cnt), sizeof(cnt));
 
             // Write the first line verbatim
             file.write(data.data(), data.size());
@@ -144,10 +146,11 @@ class SZWriter {
         if (!first_line) {
             bw_flush(&bw);
         }
-
-        // Update the line count in the header
-        file.seekp(sizeof(uint32_t), ios::beg);
-        file.write(reinterpret_cast<const char*>(&count), sizeof(count));
+        if (!streaming) {
+            // Update the line count in the header
+            file.seekp(sizeof(uint32_t), ios::beg);
+            file.write(reinterpret_cast<const char*>(&count), sizeof(count));
+        }
         file.close();
     }
 
@@ -170,7 +173,10 @@ class SZReader {
     SZReader() : line_len(0), B(0), have_first_line(false) {}
 
     bool open(const string& filename) {
-        file.open(filename, ios::binary);
+        if (filename == "-")
+            file.open("/dev/stdin", ios::binary);
+        else
+            file.open(filename, ios::binary);
         if (!file.is_open()) return false;
 
         uint32_t L32;

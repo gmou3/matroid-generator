@@ -12,6 +12,7 @@ int main(int argc, char** argv) {
     const char* outpath = nullptr;
     bool decompress = false;
     bool get_info = false;
+    bool streaming = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-o") == 0) {
@@ -25,32 +26,50 @@ int main(int argc, char** argv) {
         } else if (strcmp(argv[i], "-i") == 0) {
             get_info = true;
             decompress = true;
+        } else if (strcmp(argv[i], "-s") == 0) {
+            streaming = true;
+        } else if (strcmp(argv[i], "-h") == 0 or
+                   strcmp(argv[i], "--help") == 0) {
+            cerr << "SZ: Simple compressor of fixed-length strings of '0's and "
+                    "'*'s with few incremental differences\n"
+                 << "usage: sz [<file>] [options]\n"
+                 << "  Compresses <file> to <file>.sz, or decompresses "
+                    "<file>.sz to <file> (with -d option)\n"
+                 << "options:\n"
+                 << "  -d            decompress mode\n"
+                 << "  -o <outfile>  write output to <outfile>\n"
+                 << "  -i            print info about a .sz file\n"
+                 << "  -s            streaming mode: no seeks, no count in "
+                    "header\n"
+                 << "                (required when used in `sort "
+                    "--compress-program`)\n";
+            return 1;
         } else {
             inpath = argv[i];
         }
     }
 
-    if (!inpath) {
-        cerr
-            << "SZ: Simple compressor of fixed-length strings of '0's and '*'s "
-               "with few incremental differences\n"
-            << "usage: sz <file> [options]\n"
-            << "  Compresses <file> to <file>.sz, or decompresses <file>.sz "
-               "to <file> (with -d option)\n"
-            << "options:\n"
-            << "  -d            decompress mode\n"
-            << "  -o <outfile>  write output to <outfile> (use - for stdout)\n";
-        return 1;
-    }
-
+    // Streaming defaults to stdin/stdout; normal mode requires a file
     string outpath_str;
-    if (!outpath) {
-        if (decompress) {
-            outpath_str = string(inpath, strlen(inpath) - 3);
-        } else {
-            outpath_str = string(inpath) + ".sz";
+    if (streaming) {
+        if (!inpath) inpath = "-";
+        if (!outpath) outpath = "-";
+    } else {
+        if (!inpath) {
+            cerr << "sz: no input file specified\n";
+            return 1;
         }
-        outpath = outpath_str.c_str();
+        if (!outpath) {
+            if (decompress) {
+                size_t len = strlen(inpath);
+                outpath_str = (len > 3 && strcmp(inpath + len - 3, ".sz") == 0)
+                                  ? string(inpath, len - 3)
+                                  : string(inpath) + ".out";
+            } else {
+                outpath_str = string(inpath) + ".sz";
+            }
+            outpath = outpath_str.c_str();
+        }
     }
 
     if (decompress) {
@@ -62,7 +81,7 @@ int main(int argc, char** argv) {
 
         if (get_info) {
             cout << reader.getinfo() << '\n';
-            if (reader.get_expected_count() == UINT64_MAX) {
+            if (!streaming && reader.get_expected_count() == UINT64_MAX) {
                 cerr << "sz: file header is invalid (incomplete write)\n";
                 return 1;
             }
@@ -70,11 +89,10 @@ int main(int argc, char** argv) {
         }
 
         ofstream fout;
-        if (strcmp(outpath, "-") == 0) {
+        if (strcmp(outpath, "-") == 0)
             fout.open("/dev/stdout");
-        } else {
+        else
             fout.open(outpath);
-        }
         if (!fout) {
             cerr << "sz: Failed to open " << outpath << '\n';
             return 1;
@@ -86,26 +104,31 @@ int main(int argc, char** argv) {
         }
         fout.flush();
 
-        if (reader.get_remaining() > 0) {
-            cerr << "sz: only read "
-                 << (reader.get_expected_count() - reader.get_remaining())
-                 << " out of " << reader.get_expected_count()
-                 << " expected strings\n";
-            return 1;
-        }
-
-        if (!reader.is_complete()) {
-            cerr << "sz: failed to reach EOF\n";
-            return 1;
+        if (!streaming) {
+            if (reader.get_remaining() > 0) {
+                cerr << "sz: only read "
+                     << (reader.get_expected_count() - reader.get_remaining())
+                     << " out of " << reader.get_expected_count()
+                     << " expected strings\n";
+                return 1;
+            }
+            if (!reader.is_complete()) {
+                cerr << "sz: failed to reach EOF\n";
+                return 1;
+            }
         }
     } else {
         SZWriter writer;
-        if (!writer.open(outpath)) {
+        if (!writer.open(outpath, streaming)) {
             cerr << "sz: Failed to open " << outpath << '\n';
             return 1;
         }
 
-        ifstream fin(inpath);
+        ifstream fin;
+        if (strcmp(inpath, "-") == 0)
+            fin.open("/dev/stdin");
+        else
+            fin.open(inpath);
         if (!fin) {
             cerr << "sz: Failed to open " << inpath << '\n';
             return 1;
