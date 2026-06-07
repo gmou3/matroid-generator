@@ -46,7 +46,7 @@ done
 sort -m -k2 "${fifos[@]}" \
 | awk '{
     print $2 | "build/sz /dev/stdin -o '"$MERGED_OUT"'"
-    print $1 | "xz -9e > '"$INDEX_OUT"'"
+    print $1 > "'"$INDEX_OUT"'"
 }'
 
 wait

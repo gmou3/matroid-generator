@@ -39,10 +39,11 @@ run_ic() {
 
 NR_MATROIDS="output/n${NN}r${RR}.sz"
 NR_MATROIDS_SUFFIX="output/n${NN}r${RR}-suffix-sorted.sz"
+NR_MATROIDS_SUFFIX_PATTERN="output/n${NN}r${RR}-suffix-sorted*.sz"
 N1R1_MATROIDS="output/n${NN1}r${RR1}.sz"
 N1R1_MATROIDS_ALL_DIR="output/n${NN1}r${RR1}-all"
 N1R1_MATROIDS_ALL="output/n${NN1}r${RR1}-all.sz"
-N1R1_CANONICAL_IDX="output/n${NN1}r${RR1}-all-to-canonical_idx.txt.xz"
+N1R1_CANONICAL_IDX="output/n${NN1}r${RR1}-all-to-canonical_idx.txt"
 
 choose() {
     local n=$1 r=$2
@@ -62,8 +63,8 @@ PREFIX_LEN=$(choose "$((N-1))" "$R")
 SUFFIX_START=$((TOTAL - SUFFIX_LEN + 1))
 
 # Sort (n, r) by (n - 1, r - 1) suffix
-if [[ -f "$NR_MATROIDS_SUFFIX" ]]; then
-    echo "- Skipping sort ($N, $R) by suffix: $NR_MATROIDS_SUFFIX already exists"
+if compgen -G "$NR_MATROIDS_SUFFIX_PATTERN" > /dev/null 2>&1; then
+    echo "- Skipping sort ($N, $R) by suffix: $NR_MATROIDS_SUFFIX_PATTERN already exists"
 else
     run_ic "$N" "$R"
     echo "- Sorting ($N, $R) canonical matroids by suffix"
@@ -94,8 +95,8 @@ fi
 # Main parallel linear scan
 run_ic "$N1" "$R"
 echo "- Running property computation for ($N, $R)"
-OPTIONS="--N $N --R $R"
+OPTIONS="--N $N --R $R --threads $THREADS"
 if [ "$N" -lt 13 ] && ! { [ "$N" -eq 10 ] && { [ "$R" -eq 4 ] || [ "$R" -eq 5 ] || [ "$R" -eq 6 ]; }; }; then
-    OPTIONS="$OPTIONS --save-results"
+    OPTIONS="$OPTIONS --save-detailed-results"
 fi
 sage -python scripts/properties-from-minors/parallel-scan-and-compute-properties.py $OPTIONS

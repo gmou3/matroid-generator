@@ -3,19 +3,14 @@ import subprocess
 import sys
 import json
 import os
+import glob
+import multiprocessing as mp
 from math import comb
 from sage.matroids.constructor import Matroid
+from sage.matroids.database_matroids import K33dual, K5dual, Fano, FanoDual
 
 def fmt(n, r):
     return f"n{n:02d}r{r:02d}"
-
-def open_xz(path):
-    proc = subprocess.Popen(
-        ["xzcat", path],
-        stdout=subprocess.PIPE,
-        text=True,
-    )
-    return proc.stdout
 
 def open_sz(path):
     proc = subprocess.Popen(
@@ -28,19 +23,203 @@ def open_sz(path):
 parser = argparse.ArgumentParser()
 parser.add_argument('--N', type=int, required=True)
 parser.add_argument('--R', type=int, required=True)
-parser.add_argument('--save-results', action='store_true')
+parser.add_argument('--save-detailed-results', action='store_true')
+parser.add_argument('-T', '--threads', type=int, default=1)
 args = parser.parse_args()
 
-N, R, save_results = args.N, args.R, args.save_results
+N, R, save_detailed_results, threads = \
+ args.N, args.R, args.save_detailed_results, args.threads
+
+properties_contraction = {}
+properties_deletion = {}
+
+def process_part(args):
+    file_nr, file_all, file_idx = args
+
+    lim = comb(N - 1, R)
+    coloop = "0" * comb(N - 1, R)
+    uniform = "*" * comb(N - 1, R - 1)
+
+    K33d = K33dual()
+    K5d = K5dual()
+    F7 = Fano()
+    F7d = FanoDual()
+
+    cnt = {
+        'all': 0,
+        'loopless': 0,
+        'coloopless': 0,
+        'simple': 0,
+        'connected': 0,
+        'paving': 0,
+        'binary': 0,
+        'ternary': 0,
+        'quaternary': 0,
+        'regular': 0,
+        'graphic': 0,
+    }
+    properties_by_matroid = {}
+
+    with open_sz(file_nr) as nr_stream, \
+         open_sz(file_all) as all_stream, \
+         open(file_idx) as idx_stream:
+
+        all_line_no = 0
+        current_all_str = all_stream.readline()[:-1]
+        current_canonical_idx = int(idx_stream.readline())
+        contraction = properties_contraction[current_canonical_idx]
+
+        for nr_line in nr_stream:
+            nr_line = nr_line[:-1]
+            prefix = nr_line[:lim]
+            suffix = nr_line[lim:]
+
+            while current_all_str < suffix:
+                current_all_str = all_stream.readline()[:-1]
+                current_canonical_idx = int(idx_stream.readline())
+                contraction = properties_contraction[current_canonical_idx]
+                all_line_no += 1
+
+            assert current_all_str == suffix, \
+                f"Suffix {suffix} not found in {fmt(N-1,R-1)}-all at line {all_line_no}"
+
+            c_loopless = contraction['loopless']
+            c_simple = contraction['simple']
+            c_connected = contraction['connected']
+            c_paving = contraction['paving']
+            c_binary = contraction['binary']
+            c_ternary = contraction['ternary']
+            c_quaternary = contraction['quaternary']
+            c_regular = contraction['regular']
+            c_graphic = contraction['graphic']
+            c_T20 = contraction['T20']
+            c_T02 = contraction['T02']
+            c_T11 = contraction['T11']
+            is_binary = False
+            is_ternary = False
+            is_quaternary = False
+            is_regular = False
+            is_graphic = False
+
+            if prefix == coloop:
+                is_loopless = c_loopless
+                is_simple = c_simple
+                is_connected = False
+                is_paving = (suffix == uniform)  # unique paving with coloop
+                T20 = 2 * c_T20
+                T02 = 0
+                T11 = c_T11
+
+                if is_loopless:
+                    cnt['loopless'] += 1
+                if is_simple:
+                    cnt['simple'] += 1
+                if is_paving:
+                    cnt['paving'] += 1
+
+                if c_binary:
+                    is_binary = True
+                    cnt['binary'] += 1
+                    if c_regular:
+                        is_regular = True
+                        cnt['regular'] += 1
+                        if c_graphic:
+                            is_graphic = True
+                            cnt['graphic'] += 1
+                if c_ternary:
+                    is_ternary = True
+                    cnt['ternary'] += 1
+                if c_quaternary:
+                    is_quaternary = True
+                    cnt['quaternary'] += 1
+
+            else:
+                deletion = properties_deletion[prefix]
+                d_loopless = deletion['loopless']
+                d_simple = deletion['simple']
+                d_connected = deletion['connected']
+                d_paving = deletion['paving']
+                d_binary = deletion['binary']
+                d_ternary = deletion['ternary']
+                d_quaternary = deletion['quaternary']
+                d_regular = deletion['regular']
+                d_graphic = deletion['graphic']
+                d_T20 = deletion['T20']
+                d_T02 = deletion['T02']
+                d_T11 = deletion['T11']
+
+                T20 = d_T20 + c_T20
+                T02 = d_T02 + c_T02
+                T11 = d_T11 + c_T11
+
+                is_loopless = d_loopless
+                is_simple = d_simple and c_loopless
+                is_connected = d_connected or c_connected
+                is_paving = d_paving and c_paving
+
+                if d_loopless:
+                    cnt['loopless'] += 1
+                    # Merino-Welsh conjecture
+                    assert T20 * T02 >= T11 ** 2, f"{nr_line}, {T20}, {T02}, {T11}"
+
+                cnt['coloopless'] += 1
+                if is_simple:
+                    cnt['simple'] += 1
+                if is_connected:
+                    cnt['connected'] += 1
+                if is_paving:
+                    cnt['paving'] += 1
+
+                if (d_binary and c_binary) or (d_ternary and c_ternary) or \
+                   (d_quaternary and c_quaternary):
+                    M = Matroid(groundset=range(N), rank=R, revlex=nr_line)
+                    if d_ternary and c_ternary and M.is_ternary():
+                        is_ternary = True
+                        cnt['ternary'] += 1
+                    if d_quaternary and c_quaternary and M.is_quaternary():
+                        is_quaternary = True
+                        cnt['quaternary'] += 1
+                    if d_binary and c_binary and M.is_binary():
+                        is_binary = True
+                        cnt['binary'] += 1
+                        if d_regular and c_regular and \
+                           is_ternary and is_quaternary \
+                           and not M.has_minor(F7) and not M.has_minor(F7d):
+                            is_regular = True
+                            cnt['regular'] += 1
+                            if d_graphic and c_graphic \
+                                    and not M.has_minor(K33d) and not M.has_minor(K5d):
+                                is_graphic = True
+                                cnt['graphic'] += 1
+
+            if save_detailed_results:
+                properties_by_matroid[nr_line] = {
+                    'loopless':   is_loopless,
+                    'coloopless': prefix != coloop,
+                    'simple':     is_simple,
+                    'connected':  is_connected,
+                    'paving':     is_paving,
+                    'binary':     is_binary,
+                    'ternary':    is_ternary,
+                    'quaternary': is_quaternary,
+                    'regular':    is_regular,
+                    'graphic':    is_graphic,
+                    'T20': T20,
+                    'T02': T02,
+                    'T11': T11,
+                }
+
+            cnt['all'] += 1
+            if not cnt['all'] % 1_000_000:
+                print(f'  {cnt["all"] // 1_000_000} M', end='\r')
+
+    return cnt, properties_by_matroid
 
 print("Reading canonical minors and computing properties...")
 FILE_CONTRACTION = f"output/{fmt(N-1, R-1)}.sz"
 FILE_DELETION = f"output/{fmt(N-1, R)}.sz"
 JSON_CONTRACTION = f"output/{fmt(N-1, R-1)}-properties.json"
 JSON_DELETION = f"output/{fmt(N-1, R)}-properties.json"
-
-properties_contraction = {}
-properties_deletion = {}
 
 # Contraction properties
 if os.path.exists(JSON_CONTRACTION):
@@ -53,13 +232,18 @@ else:
     with open_sz(FILE_CONTRACTION) as f:
         for i, line in enumerate(f):
             line = line.strip()
-            M = Matroid(groundset=range(N - 1), rank=R-1, revlex=line)
+            M = Matroid(groundset=range(N-1), rank=R-1, revlex=line)
             T = M.tutte_polynomial()
             properties_contraction[i] = {
                 'loopless': not M.loops(),
                 'simple': M.is_simple(),
                 'connected': M.is_connected(),
                 'paving': M.is_paving(),
+                'binary': M.is_binary(),
+                'ternary': M.is_ternary(),
+                'quaternary': M.is_quaternary(),
+                'regular': M.is_regular(),
+                'graphic': M.is_graphic(),
                 'T20': int(T(2, 0)),
                 'T02': int(T(0, 2)),
                 'T11': int(T(1, 1)),
@@ -75,119 +259,62 @@ else:
     with open_sz(FILE_DELETION) as f:
         for line in f:
             line = line.strip()
-            M = Matroid(groundset=range(N - 1), rank=R, revlex=line)
+            M = Matroid(groundset=range(N-1), rank=R, revlex=line)
             T = M.tutte_polynomial()
             properties_deletion[line] = {
                 'loopless': not M.loops(),
                 'simple': M.is_simple(),
                 'connected': M.is_connected(),
                 'paving': M.is_paving(),
+                'binary': M.is_binary(),
+                'ternary': M.is_ternary(),
+                'quaternary': M.is_quaternary(),
+                'regular': M.is_regular(),
+                'graphic': M.is_graphic(),
                 'T20': int(T(2, 0)),
                 'T02': int(T(0, 2)),
                 'T11': int(T(1, 1)),
             }
 
-print("Performing main parallel linear scan...")
 FILE_N_R_SUFFIX_SORTED = f"output/{fmt(N, R)}-suffix-sorted.sz"
 FILE_CONTRACTION_ALL = f"output/{fmt(N-1, R-1)}-all.sz"
-FILE_CONTRACTION_ALL_TO_IDX = f"output/{fmt(N-1, R-1)}-all-to-canonical_idx.txt.xz"
+FILE_CONTRACTION_ALL_TO_IDX = f"output/{fmt(N-1, R-1)}-all-to-canonical_idx.txt"
 
-lim = comb(N - 1, R)
-coloop = "0" * comb(N - 1, R)
-loop = "0" * comb(N - 1, R - 1)
-uniform = "*" * comb(N - 1, R - 1)
-cnt = {
-    'all': 0,
-    'loopless': 0,
-    'coloopless': 0,
-    'simple': 0,
-    'connected': 0,
-    'paving': 0,
-}
+part_files = sorted(glob.glob(f"output/{fmt(N, R)}-suffix-sorted-*.sz"))
 
-properties_by_matroid = {}
+if part_files and threads > 1:
+    print(f"Performing main linear scan over {len(part_files)} parts with {threads} threads...")
 
-with open_sz(FILE_N_R_SUFFIX_SORTED) as nr_stream, \
-     open_sz(FILE_CONTRACTION_ALL) as all_stream, \
-     open_xz(FILE_CONTRACTION_ALL_TO_IDX) as idx_stream:
+    worker_args = [
+        (pf,
+         FILE_CONTRACTION_ALL,
+         FILE_CONTRACTION_ALL_TO_IDX)
+        for pf in part_files
+    ]
 
-    all_line_no = 0
-    current_all_str = all_stream.readline().rstrip('\n')
-    current_canonical_idx = int(idx_stream.readline().strip())
-    contraction = properties_contraction[current_canonical_idx]
+    with mp.Pool(threads) as pool:
+        results = pool.map(process_part, worker_args)
 
-    for nr_line in nr_stream:
-        nr_line = nr_line.rstrip('\n')
-        prefix = nr_line[:lim]
-        suffix = nr_line[lim:]
+    cnt = {k: sum(r[0][k] for r in results) for k in results[0][0]}
+    if save_detailed_results:
+        properties_by_matroid = {k: v for r in results for k, v in r[1].items()}
 
-        current_matroid = {
-            'loopless': False,
-            'coloopless': False,
-            'simple': False,
-            'connected': False,
-            'paving': False,
-            'T20': 0,
-            'T02': 0,
-            'T11': 0,
-        }
+else:
+    print("Performing main linear scan...")
+    cnt, properties_by_matroid = process_part((
+        FILE_N_R_SUFFIX_SORTED,
+        FILE_CONTRACTION_ALL,
+        FILE_CONTRACTION_ALL_TO_IDX,
+    ))
 
-        while current_all_str < suffix:
-            current_all_str = all_stream.readline().rstrip('\n')
-            current_canonical_idx = int(idx_stream.readline().strip())
-            contraction = properties_contraction[current_canonical_idx]
-            all_line_no += 1
-
-        assert current_all_str == suffix, \
-            f"Suffix {suffix} not found in {fmt(N-1,R-1)}-all at line {all_line_no}"
-
-        if prefix == coloop:
-            if contraction['loopless']:
-                current_matroid['loopless'] = True
-            if contraction['simple']:
-                current_matroid['simple'] = True
-            if suffix == uniform:
-                # the unique paving matroid when n is a coloop (U_{N-1,R-1} + U_{1, 1})
-                current_matroid['paving'] = True
-            current_matroid['T20'] = 2 * contraction['T20']
-            current_matroid['T02'] = 0 * contraction['T02']
-            current_matroid['T11'] = 1 * contraction['T11']
-        else:
-            deletion = properties_deletion[prefix]
-            T20 = current_matroid['T20'] = deletion['T20'] + contraction['T20']
-            T02 = current_matroid['T02'] = deletion['T02'] + contraction['T02']
-            T11 = current_matroid['T11'] = deletion['T11'] + contraction['T11']
-            if deletion['loopless']:
-                current_matroid['loopless'] = True
-                # Merino-Welsh conjecture
-                assert T20 * T02 >= T11 ** 2, \
-                    f"{nr_line}, {T20}, {T02}, {T11}"
-            current_matroid['coloopless'] = True
-            if deletion['simple'] and contraction['loopless']:
-                current_matroid['simple'] = True
-            if deletion['connected'] or contraction['connected']:
-                current_matroid['connected'] = True
-            if deletion['paving'] and contraction['paving']:
-                current_matroid['paving'] = True
-
-        for property, value in current_matroid.items():
-            if isinstance(value, bool) and value:
-                cnt[property] += 1
-
-        if save_results:
-            properties_by_matroid[nr_line] = current_matroid
-
-        cnt['all'] += 1
-        if not cnt['all'] % 1000000:
-            print(f'  {cnt['all'] // 1000000} M', end='\r')
-
-if cnt['all'] >= 1000000:
-    print()
 for property, cnt_property in cnt.items():
     print(f'  {property}: {cnt_property}')
 
-if save_results:
-    JSON_FILE = f"output/{fmt(N, R)}-properties.json"
-    with open(JSON_FILE, 'w') as f:
+JSON_FILE = f"output/{fmt(N, R)}-properties.json"
+with open(JSON_FILE, 'w') as f:
+    if save_detailed_results:
         json.dump(dict(sorted(properties_by_matroid.items())), f)
-    print(f"Detailed results saved in {JSON_FILE}")
+        print(f"Detailed results saved in {JSON_FILE}")
+    else:
+        json.dump(cnt, f)
+        print(f"Counts saved in {JSON_FILE}")
