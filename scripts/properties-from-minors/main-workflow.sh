@@ -81,7 +81,7 @@ if [[ -d "$N1R1_MATROIDS_ALL_DIR" || -f "$N1R1_MATROIDS_ALL" ]]; then
 else
     run_ic "$N1" "$R1"
     echo "- Computing colex permutations for ($N1, $R1)"
-    python3 scripts/properties-from-minors/colex-permutations.py "$N1" "$R1" "$N1R1_MATROIDS" "$N1R1_MATROIDS_ALL_DIR" "-T${THREADS}"
+    python3 scripts/properties-from-minors/helpers/colex-permutations.py "$N1" "$R1" "$N1R1_MATROIDS" "$N1R1_MATROIDS_ALL_DIR" "-T${THREADS}"
 fi
 
 # Merge sorted files of colex permutations
@@ -89,7 +89,7 @@ if [[ -f "$N1R1_CANONICAL_IDX" ]]; then
     echo "- Skipping merge: $N1R1_CANONICAL_IDX already exists"
 else
     echo "- Merging sorted colex files"
-    scripts/properties-from-minors/merge-sorted.sh "$N1R1_MATROIDS_ALL_DIR/" "$N1R1_MATROIDS_ALL" "$N1R1_CANONICAL_IDX"
+    scripts/properties-from-minors/helpers/merge-sort.sh "$N1R1_MATROIDS_ALL_DIR/" "$N1R1_MATROIDS_ALL" "$N1R1_CANONICAL_IDX"
 fi
 
 # Main parallel linear scan
