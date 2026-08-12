@@ -12,12 +12,12 @@ using namespace std;
 
 int num_threads = 1;
 
-vector<string> IC(uint16_t n, uint16_t r, bool top_level = true) {
+vector<string> IC(uint16_t r, uint16_t n, bool top_level = true) {
     // Base cases
     if (n < r) {
         return {};
     } else if (r == 0 || n == r) {
-        Matroid M(n, r, "*");
+        Matroid M(r, n, "*");
         if (top_level) output_matroid(M, 0, 0);
         return {M.colex};
     }
@@ -34,8 +34,8 @@ vector<string> IC(uint16_t n, uint16_t r, bool top_level = true) {
     }
 
     // Recursive calls
-    vector<string> IC_nm1 = IC(n - 1, r, false);
-    vector<string> IC_nm1_rm1 = IC(n - 1, r - 1, false);
+    vector<string> IC_nm1 = IC(r, n - 1, false);
+    vector<string> IC_rm1_nm1 = IC(r - 1, n - 1, false);
 
     // Initialize factorials, binomial coefficients,
     // mappings between indices and sets,
@@ -50,7 +50,7 @@ vector<string> IC(uint16_t n, uint16_t r, bool top_level = true) {
         int tid = omp_get_thread_num();
 #pragma omp for schedule(dynamic, 1) nowait
         for (size_t i = 0; i < IC_nm1.size(); ++i) {
-            Matroid M(n - 1, r, IC_nm1[i]);
+            Matroid M(r, n - 1, IC_nm1[i]);
             // Iterate over all canonical extensions
             M.canonical_extensions([&](Matroid M_ext) {
                 if (top_level)
@@ -66,9 +66,9 @@ vector<string> IC(uint16_t n, uint16_t r, bool top_level = true) {
                         make_move_iterator(v.end()));
     }
 
-    // Process IC_nm1_rm1
-    for (const string& colex : IC_nm1_rm1) {
-        Matroid M(n - 1, r - 1, colex);
+    // Process IC_rm1_nm1
+    for (const string& colex : IC_rm1_nm1) {
+        Matroid M(r - 1, n - 1, colex);
         Matroid M_ext = M.coloop_extension();
         if (top_level)
             output_matroid(M_ext, IC_nm1.size(), 0);
@@ -82,13 +82,13 @@ vector<string> IC(uint16_t n, uint16_t r, bool top_level = true) {
 int main(int argc, char* argv[]) {
     if (argc < 3 || argc > 6) {
         cout << "Usage: " << argv[0]
-             << " <n> <r> [<num_threads>] [--file] [--compressed-file]" << endl;
+             << " <r> <n> [<num_threads>] [--file] [--compressed-file]" << endl;
         return 1;
     }
 
     // Parse arguments
-    uint16_t n = static_cast<uint16_t>(stoul(argv[1]));
-    uint16_t r = static_cast<uint16_t>(stoul(argv[2]));
+    uint16_t r = static_cast<uint16_t>(stoul(argv[1]));
+    uint16_t n = static_cast<uint16_t>(stoul(argv[2]));
     for (int i = 3; i < argc; ++i) {
         if (string(argv[i]) == "--file") {
             to_file = true;
@@ -101,10 +101,10 @@ int main(int argc, char* argv[]) {
     }
     omp_set_num_threads(num_threads);
 
-    if (to_file) open_files(n, r, num_threads);
+    if (to_file) open_files(r, n, num_threads);
 
     // Main IC call
-    IC(n, r);
+    IC(r, n);
 
     if (to_file) merge_files();
 

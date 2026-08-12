@@ -18,8 +18,8 @@ class Matroid {
     mutable unordered_map<bitset<N>, bitset<N>> closure_cache;
 
    public:
-    uint16_t n;
     uint16_t r;
+    uint16_t n;
     string colex;
     mutable set<bitset<N>, CoLexComparator<N>> ind_sets_rm1;
     mutable vector<bitset<N>> hyperplanes;
@@ -30,8 +30,8 @@ class Matroid {
     mutable unordered_map<bitset<N>, uint16_t> hyperplanes_index;
     mutable vector<vector<uint16_t>> hyperplanes_to_zeros;
 
-    Matroid(const uint16_t& n, const uint16_t& r, const string& colex)
-        : n(n), r(r), colex(colex) {}
+    Matroid(const uint16_t& r, const uint16_t& n, const string& colex)
+        : r(r), n(n), colex(colex) {}
 
     uint16_t rank(const bitset<N>& F) const;
     bitset<N> closure(const bitset<N>& F) const;
@@ -46,7 +46,7 @@ class Matroid {
         for (uint16_t i = 0; i < bnml_nm1_rm1; ++i) {
             colex[bnml_nm1 + i] = this->colex[i];
         }
-        return Matroid(this->n + 1, this->r + 1, colex);
+        return Matroid(this->r + 1, this->n + 1, colex);
     }
 
     template <typename F>

@@ -2,12 +2,12 @@
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then
-    echo "Usage: $0 <n> <r> <input_dir>" >&2
+    echo "Usage: $0 <r> <n> <input_dir>" >&2
     exit 1
 fi
 
-N="$1"
-R="$2"
+R="$1"
+N="$2"
 INPUT_DIR="$3"
 
 export LC_ALL=C
@@ -55,7 +55,7 @@ done
 
 SUFFIX_START=$((TOTAL - SUFFIX_LEN + 1))
 
-MERGED_OUT="output/$(printf 'n%02dr%02d-suffix-sorted.sz' "$N" "$R")"
+MERGED_OUT="output/$(printf 'r%02dn%02d-suffix-sorted.sz' "$R" "$N")"
 
 sort -m \
     -k1.${SUFFIX_START},1.${TOTAL} \

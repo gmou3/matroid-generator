@@ -45,7 +45,7 @@ inline uint16_t dfs_canonical(const char* colex, const size_t unset,
     return bnml;
 }
 
-inline uint16_t is_canonical(const char* colex, size_t n, size_t r) {
+inline uint16_t is_canonical(const char* colex, size_t r, size_t n) {
     // Return first detected position of failure ('*' -> '0'),
     // or bnml if no such position exists (canonical)
     // Main check: traverse (partial) permutations using DFS
@@ -195,9 +195,9 @@ uint16_t dfs_search(Node& node, const string& base_colex_ext, F& on_extension) {
     if (p == N_H) {
         // No more free planes - this is a complete linear subclass
         string M_ext = node.M->colex + extend_matroid_LS(node, base_colex_ext);
-        uint16_t j_fail = is_canonical(M_ext.data(), node.M->n + 1, node.M->r);
+        uint16_t j_fail = is_canonical(M_ext.data(), node.M->r, node.M->n + 1);
         if (j_fail == bnml) {  // Canonical matroid
-            on_extension(Matroid(node.M->n + 1, node.M->r, M_ext));
+            on_extension(Matroid(node.M->r, node.M->n + 1, M_ext));
         }
         return j_fail;
     }

@@ -15,8 +15,8 @@ from sage.matroids.constructor import Matroid
 from sage.matroids.database_matroids import K33dual, K5dual
 
 
-def fmt(n, r):
-    return f"n{n:02d}r{r:02d}"
+def fmt(r, n):
+    return f"r{r:02d}n{n:02d}"
 
 
 def build_properties(M):
@@ -49,14 +49,14 @@ def open_sz(path):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--N', type=int, required=True)
 parser.add_argument('--R', type=int, required=True)
+parser.add_argument('--N', type=int, required=True)
 parser.add_argument('--save-detailed-results', action='store_true')
 parser.add_argument('-T', '--threads', type=int, default=1)
 args = parser.parse_args()
 
-N, R, save_detailed_results, threads = \
-    args.N, args.R, args.save_detailed_results, args.threads
+R, N, save_detailed_results, threads = \
+    args.R, args.N, args.save_detailed_results, args.threads
 
 properties_contraction = {}
 properties_deletion = {}
@@ -111,11 +111,11 @@ def is_realizable_with_timeout(M, worker, timeout=5):
 
 
 def process_part(args):
-    file_nr, file_all, file_idx = args
+    file_rn, file_all, file_idx = args
 
     start = time.time()
 
-    part_name = os.path.splitext(os.path.basename(file_nr))[0]
+    part_name = os.path.splitext(os.path.basename(file_rn))[0]
     worker = None
 
     lim = comb(N - 1, R)
@@ -141,7 +141,7 @@ def process_part(args):
     }
     properties_by_matroid = {}
 
-    with open_sz(file_nr) as nr_stream, \
+    with open_sz(file_rn) as rn_stream, \
             open_sz(file_all) as all_stream, \
             open(file_idx) as idx_stream:
 
@@ -150,10 +150,10 @@ def process_part(args):
         current_canonical_idx = int(idx_stream.readline())
         contraction = properties_contraction[current_canonical_idx]
 
-        for nr_line in nr_stream:
-            nr_line = nr_line[:-1]
-            prefix = nr_line[:lim]
-            suffix = nr_line[lim:]
+        for rn_line in rn_stream:
+            rn_line = rn_line[:-1]
+            prefix = rn_line[:lim]
+            suffix = rn_line[lim:]
 
             while current_all_str < suffix:
                 current_all_str = all_stream.readline()[:-1]
@@ -162,7 +162,7 @@ def process_part(args):
                 all_line_no += 1
 
             assert current_all_str == suffix, \
-                f"Suffix {suffix} not found in {fmt(N - 1, R - 1)}-all at line {all_line_no}"
+                f"Suffix {suffix} not found in {fmt(R - 1, N - 1)}-all at line {all_line_no}"
 
             c_loopless = contraction['loopless']
             c_simple = contraction['simple']
@@ -251,7 +251,7 @@ def process_part(args):
                 if d_loopless:
                     cnt['loopless'] += 1
                     assert T20 * \
-                        T02 >= T11 ** 2, f"{nr_line}, {T20}, {T02}, {T11}"
+                        T02 >= T11 ** 2, f"{rn_line}, {T20}, {T02}, {T11}"
 
                 cnt['coloopless'] += 1
                 if is_simple:
@@ -262,12 +262,12 @@ def process_part(args):
                     cnt['paving'] += 1
 
                 if d_realizable and c_realizable:
-                    M = Matroid(groundset=range(N), rank=R, revlex=nr_line)
+                    M = Matroid(groundset=range(N), rank=R, revlex=rn_line)
 
                     try:
                         is_realizable, worker = is_realizable_with_timeout(M, worker)
                     except TimeoutError:
-                        print(f"Part {part_name} aborted due to timeout on matroid {nr_line}")
+                        print(f"Part {part_name} aborted due to timeout on matroid {rn_line}")
                         return {}, {}
 
                     if is_realizable:
@@ -290,7 +290,7 @@ def process_part(args):
                                     cnt['graphic'] += 1
 
             if save_detailed_results:
-                properties_by_matroid[nr_line] = {
+                properties_by_matroid[rn_line] = {
                     'loopless':   is_loopless,
                     'coloopless': prefix != coloop,
                     'simple':     is_simple,
@@ -329,10 +329,23 @@ def process_part(args):
 
 
 print("Reading canonical minors and computing properties...")
-FILE_CONTRACTION = f"output/{fmt(N - 1, R - 1)}.sz"
-FILE_DELETION = f"output/{fmt(N - 1, R)}.sz"
-JSON_CONTRACTION = f"output/{fmt(N - 1, R - 1)}-properties.json"
-JSON_DELETION = f"output/{fmt(N - 1, R)}-properties.json"
+FILE_DELETION = f"output/{fmt(R, N - 1)}.sz"
+JSON_DELETION = f"output/{fmt(R, N - 1)}-properties.json"
+FILE_CONTRACTION = f"output/{fmt(R - 1, N - 1)}.sz"
+JSON_CONTRACTION = f"output/{fmt(R - 1, N - 1)}-properties.json"
+
+# Deletion properties
+if os.path.exists(JSON_DELETION):
+    print(f"  Reading deletion properties from {JSON_DELETION}...")
+    with open(JSON_DELETION) as f:
+        properties_deletion = json.load(f)
+else:
+    print(f"  Computing deletion properties with Sage from {FILE_DELETION}...")
+    with open_sz(FILE_DELETION) as f:
+        for line in f:
+            line = line.strip()
+            M = Matroid(rank=R, groundset=range(N - 1), revlex=line)
+            properties_deletion[line] = build_properties(M)
 
 # Contraction properties
 if os.path.exists(JSON_CONTRACTION):
@@ -347,27 +360,14 @@ else:
     with open_sz(FILE_CONTRACTION) as f:
         for i, line in enumerate(f):
             line = line.strip()
-            M = Matroid(groundset=range(N - 1), rank=R - 1, revlex=line)
+            M = Matroid(rank=R - 1, groundset=range(N - 1), revlex=line)
             properties_contraction[i] = build_properties(M)
 
-# Deletion properties
-if os.path.exists(JSON_DELETION):
-    print(f"  Reading deletion properties from {JSON_DELETION}...")
-    with open(JSON_DELETION) as f:
-        properties_deletion = json.load(f)
-else:
-    print(f"  Computing deletion properties with Sage from {FILE_DELETION}...")
-    with open_sz(FILE_DELETION) as f:
-        for line in f:
-            line = line.strip()
-            M = Matroid(groundset=range(N - 1), rank=R, revlex=line)
-            properties_deletion[line] = build_properties(M)
+FILE_RN_SUFFIX_SORTED = f"output/{fmt(R, N)}-suffix-sorted.sz"
+FILE_CONTRACTION_ALL = f"output/{fmt(R - 1, N - 1)}-all.sz"
+FILE_CONTRACTION_ALL_TO_IDX = f"output/{fmt(R - 1, N - 1)}-all-to-canonical_idx.txt"
 
-FILE_N_R_SUFFIX_SORTED = f"output/{fmt(N, R)}-suffix-sorted.sz"
-FILE_CONTRACTION_ALL = f"output/{fmt(N - 1, R - 1)}-all.sz"
-FILE_CONTRACTION_ALL_TO_IDX = f"output/{fmt(N - 1, R - 1)}-all-to-canonical_idx.txt"
-
-part_files = sorted(glob.glob(f"output/{fmt(N, R)}-suffix-sorted-*.sz"))
+part_files = sorted(glob.glob(f"output/{fmt(R, N)}-suffix-sorted-*.sz"))
 
 if part_files and threads > 1:
     print(
@@ -446,7 +446,7 @@ if part_files and threads > 1:
 else:
     print("Performing main linear scan...")
     cnt, properties_by_matroid = process_part((
-        FILE_N_R_SUFFIX_SORTED,
+        FILE_RN_SUFFIX_SORTED,
         FILE_CONTRACTION_ALL,
         FILE_CONTRACTION_ALL_TO_IDX,
     ))
@@ -455,12 +455,12 @@ for property, cnt_property in cnt.items():
     print(f'  {property}: {cnt_property}')
 
 if save_detailed_results:
-    JSON_FILE = f"output/{fmt(N, R)}-properties.json"
+    JSON_FILE = f"output/{fmt(R, N)}-properties.json"
     with open(JSON_FILE, 'w') as f:
         json.dump(dict(sorted(properties_by_matroid.items())), f)
         print(f"Detailed results saved in {JSON_FILE}")
 
-JSON_FILE = f"output/{fmt(N, R)}-properties-counts.json"
+JSON_FILE = f"output/{fmt(R, N)}-properties-counts.json"
 with open(JSON_FILE, 'w') as f:
     json.dump(cnt, f)
     print(f"Counts saved in {JSON_FILE}")

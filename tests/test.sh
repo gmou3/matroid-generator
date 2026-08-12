@@ -12,29 +12,29 @@ fi
 flag=true
 N=8
 echo "Testing for all matroids with up to $N elements..."
-for ((n = 0; n <= N; n++)); do
-    for ((r = 0; r <= n; r++)); do
+for ((r = 0; r <= N; r++)); do
+    for ((n = r; n <= N; n++)); do
         # Test serial version
-        expected=$(< "expected/n0${n}r0${r}")
-        output=$($executable $n $r)
+        expected=$(< "expected/r0${r}n0${n}")
+        output=$($executable $r $n)
         if [ "$expected" != "$output" ]; then
-            echo "Test failed: ($n, $r)"
+            echo "Test failed: ($r, $n)"
             flag=false
         fi
 
         # Test parallel version with file output
-        $executable $n $r 2 --file
-        output=$(< "output/n0${n}r0${r}")
+        $executable $r $n 2 --file
+        output=$(< "output/r0${r}n0${n}")
         if [ "$expected" != "$output" ]; then
-            echo "Test failed: ($n, $r, 2, --file)"
+            echo "Test failed: ($r, $n, 2, --file)"
             flag=false
         fi
 
         # Test parallel version with compressed file output
-        $executable $n $r 4 --compressed-file
-        output=$(../scripts/szcat.sh "output/n0${n}r0${r}.sz")
+        $executable $r $n 4 --compressed-file
+        output=$(../scripts/szcat.sh "output/r0${r}n0${n}.sz")
         if [ "$expected" != "$output" ]; then
-            echo "Test failed: ($n, $r, 4, --compressed-file)"
+            echo "Test failed: ($r, $n, 4, --compressed-file)"
             flag=false
         fi
     done

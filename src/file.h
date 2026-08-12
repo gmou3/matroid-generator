@@ -17,12 +17,12 @@ namespace fs = filesystem;
 bool to_file = false;
 bool use_compression = false;
 
-// Generate colex or .idx filenames based on n, r, and thread number
-inline string generate_filename(size_t n, size_t r, int thread_num,
+// Generate colex or .idx filenames based on r, n, and thread number
+inline string generate_filename(size_t r, size_t n, int thread_num,
                                 bool idx = false) {
     stringstream filename;
-    filename << "output/n" << setw(2) << setfill('0') << n << "r" << setw(2)
-             << setfill('0') << r << "-thread" << setw(2) << setfill('0')
+    filename << "output/r" << setw(2) << setfill('0') << r << "n" << setw(2)
+             << setfill('0') << n << "-thread" << setw(2) << setfill('0')
              << thread_num;
     if (idx)
         filename << ".idx";
@@ -40,9 +40,9 @@ struct ThreadState {
     string filename;
     string idx_filename;
 
-    void open_files(size_t n, size_t r, int thread_num) {
-        filename = generate_filename(n, r, thread_num);
-        idx_filename = generate_filename(n, r, thread_num, true);
+    void open_files(size_t r, size_t n, int thread_num) {
+        filename = generate_filename(r, n, thread_num);
+        idx_filename = generate_filename(r, n, thread_num, true);
         idx_file.open(idx_filename);
         if (use_compression) {
             sz_writer = make_unique<SZWriter>();
@@ -76,10 +76,10 @@ struct ThreadState {
 vector<ThreadState> thread_state;
 
 // Open colex and .idx files (one pair per thread)
-void open_files(size_t n, size_t r, int threads) {
+void open_files(size_t r, size_t n, int threads) {
     if (!fs::exists("output")) fs::create_directory("output");
     thread_state.resize(threads);
-    for (int i = 0; i < threads; ++i) thread_state[i].open_files(n, r, i);
+    for (int i = 0; i < threads; ++i) thread_state[i].open_files(r, n, i);
 }
 
 // Output matroid either to file or to stdout

@@ -18,7 +18,7 @@ def colex_rank(subset):
     s = sorted(subset)
     return sum(comb(s[i], i + 1) for i in range(len(s)))
 
-def build_tables(n, r):
+def build_tables(r, n):
     total = comb(n, r)
     all_subsets = sorted(combinations(range(n), r), key=colex_rank)
     assert len(all_subsets) == total
@@ -57,10 +57,10 @@ def all_permutations(input_str, n, all_subsets, subset_to_idx, total):
             yield pi, to_string(image, active_char, total)
 
 def process_seed(args):
-    seed_idx, input_str, out_dir, n, r = args
-    all_subsets, subset_to_idx, total = build_tables(n, r)
+    seed_idx, input_str, out_dir, r, n = args
+    all_subsets, subset_to_idx, total = build_tables(r, n)
     orbit = sorted(s for _, s in all_permutations(input_str, n, all_subsets, subset_to_idx, total))
-    sz_file = os.path.join(out_dir, f"n{n:02d}r{r:02d}-{seed_idx:06d}.sz")
+    sz_file = os.path.join(out_dir, f"r{r:02d}n{n:02d}-{seed_idx:06d}.sz")
 
     subprocess.run(
         ["build/sz", "/dev/stdin", "-o", sz_file],
@@ -73,8 +73,8 @@ def process_seed(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("n", type=int, help="Number of elements")
     parser.add_argument("r", type=int, help="Rank")
+    parser.add_argument("n", type=int, help="Number of elements")
     parser.add_argument("input", help="Input file")
     parser.add_argument("out_dir", nargs="?", default=".", help="Output directory")
     parser.add_argument("-T", "--threads", type=int, default=1)
@@ -92,7 +92,7 @@ if __name__ == "__main__":
             input_str = line.strip()
             if not input_str:
                 continue
-            tasks.append((seed_idx, input_str, args.out_dir, args.n, args.r))
+            tasks.append((seed_idx, input_str, args.out_dir, args.r, args.n))
             seed_idx += 1
 
     done = 0
@@ -102,8 +102,8 @@ if __name__ == "__main__":
             try:
                 seed_idx, cnt = future.result()
                 done += 1
-                print(f"{done}/{len(tasks)}", file=sys.stderr, end='\r')
+                print(f"  {done}/{len(tasks)}", file=sys.stderr, end='\r')
             except Exception as e:
-                print(f"\n[seed {futures[future]}] failed: {e}", file=sys.stderr)
+                print(f"\n  [seed {futures[future]}] failed: {e}", file=sys.stderr)
 
     print(f"\nWritten {done} files to {args.out_dir}", file=sys.stderr)

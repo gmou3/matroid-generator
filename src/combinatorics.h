@@ -42,15 +42,15 @@ struct CoLexComparator {
 };
 
 template <uint16_t N>
-vector<bitset<N>> combinations(uint16_t n, uint16_t r) {
-    // Produce C([n], r) in colex order
-    if (r == 0 || n == r) {
+vector<bitset<N>> combinations(uint16_t n, uint16_t k) {
+    // Produce C([n], k) in colex order
+    if (k == 0 || n == k) {
         bitset<N> b;
-        for (uint16_t i = 0; i < r; ++i) b.set(i);
+        for (uint16_t i = 0; i < k; ++i) b.set(i);
         return {b};
     }
-    vector<bitset<N>> result = combinations<N>(n - 1, r);
-    for (bitset<N> b : combinations<N>(n - 1, r - 1)) {
+    vector<bitset<N>> result = combinations<N>(n - 1, k);
+    for (bitset<N> b : combinations<N>(n - 1, k - 1)) {
         b.set(n - 1);
         result.push_back(b);
     }

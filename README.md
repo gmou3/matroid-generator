@@ -1,6 +1,7 @@
 # matroid-generator
 
-A C++ implementation of the matroid generation algorithm described in [[1]](#1).
+A C++ implementation of a matroid generation algorithm, based on the ideas
+described in [[1]](#1).
 
 This algorithm relies on a canonical representation of matroids and avoids all
 isomorphism testing.
@@ -15,22 +16,22 @@ Tip: use `make test` to execute the test suite.
 
 ## Usage
 
-To generate all (canonical) matroids over `n` elements of rank `r`, run
+To generate all (canonical) matroids of rank `r` over `n` elements, run
 ```bash
-./build/IC <n> <r> [<num_threads>] [--file] [--compressed-file]
+./build/IC <r> <n> [<num_threads>] [--file] [--compressed-file]
 ```
 - `num_threads` (default: 1) — the number of threads to use for parallel
   computation
-- `--file` (optional) — output will be written to the file `output/n__r__`
+- `--file` (optional) — output will be written to the file `output/r__n__`
   (instead of `stdout`)
 - `--compressed-file` (optional) — output will be written to the SZ compressed
-  file `output/n__r__.sz`. Use `scripts/szcat.sh [-i]` to see the contents.
+  file `output/r__n__.sz`. Use `scripts/szcat.sh [-i]` to see the contents.
 
-WARNING: Memory usage scales with `n` and `r`.
+WARNING: Memory usage scales with `r` and `n`.
 
 A raw example:
 ```bash
-$ ./build/IC 5 2
+$ ./build/IC 2 5
 **********
 0*********
 0****0****
@@ -50,7 +51,7 @@ parallel execution writes to `stdout`.
 
 For a timed and enumerated output, run, e.g.,
 ```bash
-time ./build/IC 8 4 | cat -n
+time ./build/IC 4 8 | cat -n
 ```
 
 ## Notes
