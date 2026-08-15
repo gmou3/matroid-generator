@@ -19,14 +19,19 @@ def fmt(r, n):
     return f"r{r:02d}n{n:02d}"
 
 
-def build_properties(M):
+def realizable_key(characteristic=None):
+    if characteristic is None:
+        return 'realizable'
+    return f'realizable_char{characteristic}'
+
+
+def build_properties(M, include_realizable=False, characteristic=None):
     T = M.tutte_polynomial()
-    return {
+    props = {
         'loopless': not M.loops(),
         'simple': M.is_simple(),
         'connected': M.is_connected(),
         'paving': M.is_paving(),
-        'realizable': M.is_realizable(),
         'binary': M.is_binary(),
         'ternary': M.is_ternary(),
         'quaternary': M.is_quaternary(),
@@ -37,6 +42,16 @@ def build_properties(M):
         'T11': int(T(1, 1)),
         'beta_invariant': int(M.beta_invariant()),
     }
+    if include_realizable:
+        key = realizable_key(characteristic)
+        props[key] = M.is_realizable(characteristic=characteristic)
+    return props
+
+
+def ensure_matroid(M, r, n, revlex):
+    if M is None:
+        M = Matroid(rank=r, groundset=range(n), revlex=revlex)
+    return M
 
 
 def open_sz(path):
@@ -52,11 +67,15 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--R', type=int, required=True)
 parser.add_argument('--N', type=int, required=True)
 parser.add_argument('--save-detailed-results', action='store_true')
+parser.add_argument('--realizable', action='store_true')
+parser.add_argument('--char', type=int, default=None)
 parser.add_argument('-T', '--threads', type=int, default=1)
 args = parser.parse_args()
 
-R, N, save_detailed_results, threads = \
-    args.R, args.N, args.save_detailed_results, args.threads
+R, N, save_detailed_results, threads, compute_realizable, characteristic = \
+    args.R, args.N, args.save_detailed_results, args.threads, args.realizable, args.char
+
+realizability_key = realizable_key(characteristic)
 
 properties_contraction = {}
 properties_deletion = {}
@@ -89,16 +108,20 @@ def _realizable_worker(q_in, q_out):
         q_out.put(result)
 
 
-def is_realizable_with_timeout(M, worker, timeout=5):
+def is_realizable_with_timeout(M, characteristic=None, worker=None, timeout=5):
     prev_basis = None
-    for c in [2, 3, 5, 7, 11, None]:
+    if characteristic is None:
+        chars = [2, 3, 5, 7, 11, None]
+    else:
+        chars = [characteristic]
+    for c in chars:
         for basis in [prev_basis] + list(M.bases()):
             worker = _ensure_worker(worker)
             worker[0].put((M, c, basis))
             try:
                 result = worker[1].get(timeout=timeout)
                 prev_basis = basis
-                if result or c is None:
+                if characteristic is not None or (result or c is None):
                     return result, worker
                 break
             except:
@@ -132,13 +155,14 @@ def process_part(args):
         'simple': 0,
         'connected': 0,
         'paving': 0,
-        'realizable': 0,
         'binary': 0,
         'ternary': 0,
         'quaternary': 0,
         'regular': 0,
         'graphic': 0,
     }
+    if compute_realizable:
+        cnt[realizability_key] = 0
     properties_by_matroid = {}
 
     with open_sz(file_rn) as rn_stream, \
@@ -168,23 +192,25 @@ def process_part(args):
             c_simple = contraction['simple']
             c_connected = contraction['connected']
             c_paving = contraction['paving']
-            c_realizable = contraction['realizable']
             c_binary = contraction['binary']
             c_ternary = contraction['ternary']
             c_quaternary = contraction['quaternary']
             c_regular = contraction['regular']
             c_graphic = contraction['graphic']
+            if compute_realizable:
+                c_realizable = contraction[realizability_key]
             c_T20 = contraction['T20']
             c_T02 = contraction['T02']
             c_T11 = contraction['T11']
             c_beta_invariant = contraction['beta_invariant']
 
-            is_realizable = False
             is_binary = False
             is_ternary = False
             is_quaternary = False
             is_regular = False
             is_graphic = False
+            if compute_realizable:
+                is_realizable = False
 
             if prefix == coloop:
                 is_loopless = c_loopless
@@ -194,7 +220,7 @@ def process_part(args):
                 T20 = 2 * c_T20
                 T02 = 0
                 T11 = c_T11
-                beta_invariant = (N == 1)
+                beta_invariant = int(N == 1)
 
                 if is_loopless:
                     cnt['loopless'] += 1
@@ -203,9 +229,12 @@ def process_part(args):
                 if is_paving:
                     cnt['paving'] += 1
 
-                if c_realizable:
+                if compute_realizable and c_realizable:
                     is_realizable = True
-                    cnt['realizable'] += 1
+                    cnt[realizability_key] += 1
+
+                if not compute_realizable or characteristic is not None \
+                   or c_realizable:
                     if c_binary:
                         is_binary = True
                         cnt['binary'] += 1
@@ -228,11 +257,12 @@ def process_part(args):
                 d_simple = deletion['simple']
                 d_connected = deletion['connected']
                 d_paving = deletion['paving']
-                d_realizable = deletion['realizable']
                 d_binary = deletion['binary']
                 d_ternary = deletion['ternary']
                 d_quaternary = deletion['quaternary']
                 d_graphic = deletion['graphic']
+                if compute_realizable:
+                    d_realizable = deletion[realizability_key]
                 d_T20 = deletion['T20']
                 d_T02 = deletion['T02']
                 d_T11 = deletion['T11']
@@ -261,24 +291,32 @@ def process_part(args):
                 if is_paving:
                     cnt['paving'] += 1
 
-                if d_realizable and c_realizable:
-                    M = Matroid(groundset=range(N), rank=R, revlex=rn_line)
-
+                M = None
+                if compute_realizable and d_realizable and c_realizable:
+                    M = ensure_matroid(M, R, N, rn_line)
                     try:
-                        is_realizable, worker = is_realizable_with_timeout(M, worker)
+                        is_realizable, worker = is_realizable_with_timeout(
+                            M, characteristic=characteristic, worker=worker)
+                        cnt[realizability_key] += int(is_realizable)
                     except TimeoutError:
                         print(f"Part {part_name} aborted due to timeout on matroid {rn_line}")
                         return {}, {}
 
-                    if is_realizable:
-                        cnt['realizable'] += 1
-                        if d_ternary and c_ternary and M.is_ternary():
+                if compute_realizable and (characteristic is not None or is_realizable) \
+                   or not compute_realizable:
+                    if d_ternary and c_ternary:
+                        M = ensure_matroid(M, R, N, rn_line)
+                        if M.is_ternary():
                             is_ternary = True
                             cnt['ternary'] += 1
-                        if d_quaternary and c_quaternary and M.is_quaternary():
+                    if d_quaternary and c_quaternary:
+                        M = ensure_matroid(M, R, N, rn_line)
+                        if M.is_quaternary():
                             is_quaternary = True
                             cnt['quaternary'] += 1
-                        if d_binary and c_binary and M.is_binary():
+                    if d_binary and c_binary:
+                        M = ensure_matroid(M, R, N, rn_line)
+                        if M.is_binary():
                             is_binary = True
                             cnt['binary'] += 1
                             if is_ternary:
@@ -290,13 +328,12 @@ def process_part(args):
                                     cnt['graphic'] += 1
 
             if save_detailed_results:
-                properties_by_matroid[rn_line] = {
+                properties = {
                     'loopless':   is_loopless,
                     'coloopless': prefix != coloop,
                     'simple':     is_simple,
                     'connected':  is_connected,
                     'paving':     is_paving,
-                    'realizable': is_realizable,
                     'binary':     is_binary,
                     'ternary':    is_ternary,
                     'quaternary': is_quaternary,
@@ -305,10 +342,16 @@ def process_part(args):
                     'T20': T20, 'T02': T02, 'T11': T11,
                     'beta_invariant': beta_invariant,
                 }
+                if compute_realizable:
+                    properties[realizability_key] = is_realizable
+                properties_by_matroid[rn_line] = properties
 
             cnt['all'] += 1
-            if cnt['all'] % 100 == 0:
-                print(f'  {cnt["realizable"]} / {cnt["all"]}', end='\r')
+            if compute_realizable and cnt['all'] % 100 == 0:
+                print(f'  {cnt[realizability_key]} / {cnt["all"]}', end='\r')
+            else:
+                if cnt['all'] % 1000 == 0:
+                    print(f'  {cnt["all"]}', end='\r')
 
         if save_detailed_results:
             with open(f"output/{part_name}-properties.json", 'w') as f:
@@ -321,7 +364,7 @@ def process_part(args):
 
         elapsed = time.time() - start
         print(
-            f"Part {part_name} done: {cnt['realizable']} / {cnt['all']}"
+            f"Part {part_name} done: {cnt.get(realizability_key, 0)} / {cnt['all']}"
             f" ({timedelta(seconds=int(elapsed))})"
         )
 
@@ -344,8 +387,11 @@ else:
     with open_sz(FILE_DELETION) as f:
         for line in f:
             line = line.strip()
-            M = Matroid(rank=R, groundset=range(N - 1), revlex=line)
-            properties_deletion[line] = build_properties(M)
+            M = ensure_matroid(None, R, N - 1, line)
+            properties_deletion[line] = build_properties(
+                M, include_realizable=compute_realizable,
+                characteristic=characteristic
+            )
 
 # Contraction properties
 if os.path.exists(JSON_CONTRACTION):
@@ -360,8 +406,11 @@ else:
     with open_sz(FILE_CONTRACTION) as f:
         for i, line in enumerate(f):
             line = line.strip()
-            M = Matroid(rank=R - 1, groundset=range(N - 1), revlex=line)
-            properties_contraction[i] = build_properties(M)
+            M = ensure_matroid(None, R - 1, N - 1, line)
+            properties_contraction[i] = build_properties(
+                M, include_realizable=compute_realizable,
+                characteristic=characteristic
+            )
 
 FILE_RN_SUFFIX_SORTED = f"output/{fmt(R, N)}-suffix-sorted.sz"
 FILE_CONTRACTION_ALL = f"output/{fmt(R - 1, N - 1)}-all.sz"

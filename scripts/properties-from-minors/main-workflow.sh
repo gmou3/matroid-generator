@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     echo "Usage:"
-    echo "./scripts/properties-from-minors/main-workflow.sh <r> <n> [threads]"
+    echo "./scripts/properties-from-minors/main-workflow.sh <r> <n> [threads] [--realizable] [--char <c>]"
     exit 1
 }
 
@@ -13,7 +13,29 @@ export LC_ALL=C
 
 R=$1
 N=$2
-THREADS=${3:-1}
+shift 2
+
+THREADS=1
+REALIZABLE=0
+CHAR=""
+
+if [[ $# -gt 0 ]]; then
+    THREADS=$1
+    shift
+fi
+if [[ $# -gt 0 ]]; then
+    [[ "$1" == "--realizable" ]] || usage
+    REALIZABLE=1
+    shift
+fi
+if [[ $# -gt 0 ]]; then
+    [[ "$1" == "--char" ]] || usage
+    [[ $# -ge 2 ]] || usage
+    shift
+    CHAR=$1
+    shift
+fi
+[[ $# -eq 0 ]] || usage
 
 R1=$((R - 1))
 N1=$((N - 1))
@@ -75,11 +97,11 @@ else
         | "build/sz" /dev/stdin -o "$RN_MATROIDS_SUFFIX"
 fi
 
+run_ic "$R1" "$N1"
 # Compute all colex permutations of (n - 1, r - 1)
 if [[ -d "$R1N1_MATROIDS_ALL_DIR" || -f "$R1N1_MATROIDS_ALL" ]]; then
     echo "- Skipping colex permutations: output already exists"
 else
-    run_ic "$R1" "$N1"
     echo "- Computing colex permutations for ($R1, $N1)"
     python3 scripts/properties-from-minors/helpers/colex-permutations.py "$R1" "$N1" "$R1N1_MATROIDS" "$R1N1_MATROIDS_ALL_DIR" "-T${THREADS}"
 fi
@@ -95,8 +117,14 @@ fi
 # Main parallel linear scan
 run_ic "$R" "$N1"
 echo "- Running property computation for ($R, $N)"
-OPTIONS="--R $R --N $N --threads $THREADS"
+PY_ARGS=(--R "$R" --N "$N" --threads "$THREADS")
 if [ "$N" -lt 13 ] && ! { [ "$N" -eq 10 ] && { [ "$R" -eq 4 ] || [ "$R" -eq 5 ] || [ "$R" -eq 6 ]; }; }; then
-    OPTIONS="$OPTIONS --save-detailed-results"
+    PY_ARGS+=(--save-detailed-results)
 fi
-sage -python scripts/properties-from-minors/parallel-scan-and-compute-properties.py $OPTIONS
+if [[ "$REALIZABLE" -eq 1 ]]; then
+    PY_ARGS+=(--realizable)
+fi
+if [[ -n "$CHAR" ]]; then
+    PY_ARGS+=(--char "$CHAR")
+fi
+sage -python scripts/properties-from-minors/parallel-scan-and-compute-properties.py "${PY_ARGS[@]}"
