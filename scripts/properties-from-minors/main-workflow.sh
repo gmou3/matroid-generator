@@ -19,7 +19,7 @@ THREADS=1
 REALIZABLE=0
 CHAR=""
 
-if [[ $# -gt 0 ]]; then
+if [[ $# -gt 0 && "$1" =~ ^[0-9]+$ ]]; then
     THREADS=$1
     shift
 fi

@@ -3,16 +3,16 @@ import glob
 import json
 import multiprocessing as mp
 import os
+import re
 import subprocess
 import time
-
-mp.set_start_method("fork", force=True)
-
 from datetime import timedelta
 from math import comb
 from sage.interfaces.singular import singular
 from sage.matroids.constructor import Matroid
 from sage.matroids.database_matroids import K33dual, K5dual
+
+mp.set_start_method("fork", force=True)
 
 
 def fmt(r, n):
@@ -42,15 +42,20 @@ def build_properties(M, include_realizable=False, characteristic=None):
         'T11': int(T(1, 1)),
         'beta_invariant': int(M.beta_invariant()),
     }
+    key = realizable_key(characteristic)
     if include_realizable:
-        key = realizable_key(characteristic)
-        props[key] = M.is_realizable(characteristic=characteristic)
+        RS = M.realization_space(characteristic=characteristic)
+        props[key] = RS.is_realizable()
+        props['realization_space'] = RS.to_dict()
+    else:
+        props[key] = None
+        props['realization_space'] = None
     return props
 
 
-def ensure_matroid(M, r, n, revlex):
+def ensure_matroid(M, r, n, colex):
     if M is None:
-        M = Matroid(rank=r, groundset=range(n), revlex=revlex)
+        M = Matroid(rank=r, groundset=range(n), colex=colex)
     return M
 
 
@@ -81,6 +86,17 @@ properties_contraction = {}
 properties_deletion = {}
 
 
+def find_good_basis_heuristically(M):
+    best_score = float('inf')
+    for b in M.bases():
+        score = sum(len(M.fundamental_circuit(b, e))
+                    for e in M.groundset() - b)
+        if score < best_score:
+            best_score = score
+            best_basis = b
+    return best_basis
+
+
 def _ensure_worker(worker):
     if worker is None or not worker[2].is_alive():
         q_in, q_out = mp.Queue(), mp.Queue()
@@ -103,26 +119,35 @@ def _realizable_worker(q_in, q_out):
         if item is None:
             break
         M, c, basis = item
-        RS = M.realization_space(characteristic=c, basis=basis)
+        RS = M.realization_space(characteristic=c, basis=basis,
+                                 compute_matrix=save_detailed_results)
+        assert basis == RS.basis
         result = RS.is_realizable()
-        q_out.put(result)
+        rs_dict = RS.to_dict() if save_detailed_results else None
+        q_out.put((result, rs_dict))
 
 
 def is_realizable_with_timeout(M, characteristic=None, worker=None, timeout=5):
-    prev_basis = None
     if characteristic is None:
-        chars = [2, 3, 5, 7, 11, None]
+        chars = [None]  # [2, 3, 5, 7, 11, None]
     else:
         chars = [characteristic]
+    G = None
+    orbit = {}
+    bases = list(M.bases())
+    prev_basis = find_good_basis_heuristically(M)
     for c in chars:
-        for basis in [prev_basis] + list(M.bases()):
+        seen = set()
+        for i, basis in enumerate([prev_basis] + bases):
+            if basis in seen:
+                continue
             worker = _ensure_worker(worker)
             worker[0].put((M, c, basis))
             try:
-                result = worker[1].get(timeout=timeout)
+                realizable, rs_dict = worker[1].get(timeout=timeout)
                 prev_basis = basis
-                if characteristic is not None or (result or c is None):
-                    return result, worker
+                if characteristic is not None or (realizable or c is None):
+                    return realizable, rs_dict, worker
                 break
             except:
                 try:
@@ -130,7 +155,33 @@ def is_realizable_with_timeout(M, characteristic=None, worker=None, timeout=5):
                 except:
                     pass
                 worker = None
+            if G is None:
+                G = M.automorphism_group()
+            if basis not in orbit:
+                orbit[basis] = G.orbit(basis, action="OnSets")
+            seen.update(orbit[basis])
     raise TimeoutError
+
+
+def extend_rs_for_coloop(rs_dict, nonzero_value="1"):
+    """
+    Given the realization space of the contraction, build the realization
+    space of M by extending the realization matrix.
+    """
+    old_mat = rs_dict["realization_matrix"]
+    new_elem = old_mat["ncols"]  # next available groundset index
+
+    new_entries = [row + ["0"] for row in old_mat["entries"]]
+    new_entries.append(["0"] * old_mat["ncols"] + [nonzero_value])
+
+    new_rs = dict(rs_dict)
+    new_rs["basis"] = rs_dict["basis"] + [new_elem]
+    new_rs["realization_matrix"] = {
+        "nrows": old_mat["nrows"] + 1,
+        "ncols": old_mat["ncols"] + 1,
+        "entries": new_entries,
+    }
+    return new_rs
 
 
 def process_part(args):
@@ -139,6 +190,9 @@ def process_part(args):
     start = time.time()
 
     part_name = os.path.splitext(os.path.basename(file_rn))[0]
+    match = re.search(r'part(\d+)', part_name)
+    part_num = int(match.group(1)) if match else 0
+
     worker = None
 
     lim = comb(N - 1, R)
@@ -197,8 +251,7 @@ def process_part(args):
             c_quaternary = contraction['quaternary']
             c_regular = contraction['regular']
             c_graphic = contraction['graphic']
-            if compute_realizable:
-                c_realizable = contraction[realizability_key]
+            c_realizable = contraction[realizability_key]
             c_T20 = contraction['T20']
             c_T02 = contraction['T02']
             c_T11 = contraction['T11']
@@ -209,8 +262,8 @@ def process_part(args):
             is_quaternary = False
             is_regular = False
             is_graphic = False
-            if compute_realizable:
-                is_realizable = False
+            is_realizable = None
+            rs_dict = None
 
             if prefix == coloop:
                 is_loopless = c_loopless
@@ -232,6 +285,11 @@ def process_part(args):
                 if compute_realizable and c_realizable:
                     is_realizable = True
                     cnt[realizability_key] += 1
+
+                if save_detailed_results and compute_realizable and \
+                    contraction['realization_space'] is not None:
+                    rs_dict = extend_rs_for_coloop(
+                        contraction['realization_space'])
 
                 if not compute_realizable or characteristic is not None \
                    or c_realizable:
@@ -261,8 +319,7 @@ def process_part(args):
                 d_ternary = deletion['ternary']
                 d_quaternary = deletion['quaternary']
                 d_graphic = deletion['graphic']
-                if compute_realizable:
-                    d_realizable = deletion[realizability_key]
+                d_realizable = deletion[realizability_key]
                 d_T20 = deletion['T20']
                 d_T02 = deletion['T02']
                 d_T11 = deletion['T11']
@@ -295,11 +352,12 @@ def process_part(args):
                 if compute_realizable and d_realizable and c_realizable:
                     M = ensure_matroid(M, R, N, rn_line)
                     try:
-                        is_realizable, worker = is_realizable_with_timeout(
+                        is_realizable, rs_dict, worker = is_realizable_with_timeout(
                             M, characteristic=characteristic, worker=worker)
                         cnt[realizability_key] += int(is_realizable)
                     except TimeoutError:
-                        print(f"Part {part_name} aborted due to timeout on matroid {rn_line}")
+                        print(
+                            f"Part {part_name} aborted due to timeout on matroid {rn_line}")
                         return {}, {}
 
                 if compute_realizable and (characteristic is not None or is_realizable) \
@@ -342,23 +400,26 @@ def process_part(args):
                     'T20': T20, 'T02': T02, 'T11': T11,
                     'beta_invariant': beta_invariant,
                 }
-                if compute_realizable:
-                    properties[realizability_key] = is_realizable
+                properties[realizability_key] = is_realizable
+                properties['realization_space'] = rs_dict
                 properties_by_matroid[rn_line] = properties
 
             cnt['all'] += 1
             if compute_realizable and cnt['all'] % 100 == 0:
-                print(f'  {cnt[realizability_key]} / {cnt["all"]}', end='\r')
+                print(
+                    f'  ({part_num}) {cnt[realizability_key]} / {cnt["all"]}',
+                    end='    \r')
             else:
                 if cnt['all'] % 1000 == 0:
-                    print(f'  {cnt["all"]}', end='\r')
+                    print(f'  ({part_num}) {cnt["all"]}', end='    \r')
 
         if save_detailed_results:
             with open(f"output/{part_name}-properties.json", 'w') as f:
-                json.dump(dict(sorted(properties_by_matroid.items())), f)
+                json.dump(
+                    dict(sorted(properties_by_matroid.items())), f, indent=2)
 
         with open(f"output/{part_name}-properties-counts.json", 'w') as f:
-            json.dump(cnt, f)
+            json.dump(cnt, f, indent=2)
 
         _shutdown_worker(worker)
 
@@ -490,7 +551,8 @@ if part_files and threads > 1:
                     properties_by_matroid.update(json.load(f))
             else:
                 print(
-                    f"  WARNING: {part_name} has counts but no detailed properties (was it run with --save-detailed-results?)")
+                    f"  WARNING: {part_name} has counts but no detailed " +
+                    "properties (was it run with --save-detailed-results?)")
 
 else:
     print("Performing main linear scan...")
@@ -506,10 +568,10 @@ for property, cnt_property in cnt.items():
 if save_detailed_results:
     JSON_FILE = f"output/{fmt(R, N)}-properties.json"
     with open(JSON_FILE, 'w') as f:
-        json.dump(dict(sorted(properties_by_matroid.items())), f)
+        json.dump(dict(sorted(properties_by_matroid.items())), f, indent=2)
         print(f"Detailed results saved in {JSON_FILE}")
 
 JSON_FILE = f"output/{fmt(R, N)}-properties-counts.json"
 with open(JSON_FILE, 'w') as f:
-    json.dump(cnt, f)
+    json.dump(cnt, f, indent=2)
     print(f"Counts saved in {JSON_FILE}")
