@@ -46,13 +46,20 @@ $ ./build/IC 2 5
 00000000**
 000000000*
 ```
-Note that the output is lexicographically ordered. The only exception is when
-parallel execution writes to `stdout`.
+Note that the output is lexicographically ordered (`'*' < '0'`). The only
+exception is when parallel execution writes to `stdout`.
 
 For a timed and enumerated output, run, e.g.,
 ```bash
 time ./build/IC 4 8 | cat -n
 ```
+
+To generate the canonical single-element extensions of one matroid, run
+```bash
+./build/IC-extend <r> <n> <colex>
+```
+Note that the resulting matroids have the same rank, except for the last one
+which is the extension by a coloop.
 
 ## Notes
 
@@ -62,6 +69,9 @@ Each character signifies whether an `r`-set is included (`'*'`) or excluded
 (`'0'`). The order of the `r`-sets is lexicographic on their reverse sorting.
 E.g., `{1, 2, 3} < {0, 1, 4}`, because `(3, 2, 1) < (4, 1, 0)`. This is also
 known as the colex order.
+
+A colex representation of a matroid is *canonical* if it is the
+lexicographically largest under all element reorderings.
 
 The algorithm works recursively and uses single-element matroid extensions.
 There is a bijection between single-element matroid extensions and modular cuts.
