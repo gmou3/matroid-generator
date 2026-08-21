@@ -4,23 +4,29 @@ SHELL_CMD := bash
 SRC_DIR := src
 BUILD_DIR := build
 TEST_DIR := tests
-TARGET := $(BUILD_DIR)/IC
 SZ := $(BUILD_DIR)/sz
+IC := $(BUILD_DIR)/IC
+IC_EXTEND := $(BUILD_DIR)/IC-extend
 
-SRCS := $(filter-out $(SRC_DIR)/sz.cpp, $(wildcard $(SRC_DIR)/*.cpp))
+SRCS := $(filter-out $(SRC_DIR)/sz.cpp $(SRC_DIR)/IC.cpp $(SRC_DIR)/IC-extend.cpp, $(wildcard $(SRC_DIR)/*.cpp))
 OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
-DEPS := $(OBJS:.o=.d) $(BUILD_DIR)/sz.d
+IC_OBJ := $(BUILD_DIR)/IC.o
+IC_EXTEND_OBJ := $(BUILD_DIR)/IC-extend.o
+DEPS := $(OBJS:.o=.d) $(IC_OBJ:.o=.d) $(IC_EXTEND_OBJ:.o=.d) $(BUILD_DIR)/sz.d
 
-all: $(TARGET) $(SZ)
+all: $(SZ) $(IC) $(IC_EXTEND)
 
-$(TARGET): $(OBJS) | $(BUILD_DIR)
+$(SZ): $(SRC_DIR)/sz.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(BUILD_DIR)/sz.d -o $@ $<
+
+$(IC): $(OBJS) $(IC_OBJ) | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -fopenmp -o $@ $^
+
+$(IC_EXTEND): $(OBJS) $(IC_EXTEND_OBJ) | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -fopenmp -o $@ $^
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -fopenmp -MMD -MP -MF $(BUILD_DIR)/$*.d -c -o $@ $<
-
-$(SZ): $(SRC_DIR)/sz.cpp | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(BUILD_DIR)/sz.d -o $@ $<
 
 -include $(DEPS)
 
@@ -31,7 +37,7 @@ test: all
 	$(SHELL_CMD) $(TEST_DIR)/test.sh
 
 format:
-	clang-format -i $(SRCS) $(SRC_DIR)/sz.cpp $(wildcard $(SRC_DIR)/*.h)
+	clang-format -i $(wildcard $(SRC_DIR)/*.cpp) $(wildcard $(SRC_DIR)/*.h)
 
 clean:
 	rm -rf $(BUILD_DIR)

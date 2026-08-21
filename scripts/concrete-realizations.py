@@ -17,7 +17,6 @@ from collections import Counter
 from random import shuffle
 from sage.all import *
 from sage.matroids.realization_space import *
-from sage.matroids.realization_space import _is_poly_ring
 matplotlib.use("Agg")
 
 
@@ -28,79 +27,6 @@ def open_sz(path):
         text=True,
     )
     return proc.stdout
-
-
-def has_solution(R, eqs, ineqs, q):
-    F = GF(q)
-    gens = list(R.gens())
-    # order variables by how many constraints touch them (most-constrained first)
-    appearance = Counter()
-    for p in list(eqs) + list(ineqs):
-        for v in p.variables():
-            appearance[v] += 1
-    order = sorted(range(len(gens)), key=lambda i: -appearance[gens[i]])
-    variables = [gens[i] for i in order]
-    n = len(variables)
-    var_index = {v: i for i, v in enumerate(variables)}
-    domains = [list(F) for _ in range(n)]
-
-    def positions(poly):
-        return set(var_index[v] for v in poly.variables())
-
-    reduced_eqs, reduced_ineqs = [], []
-    for f in eqs:
-        pos = positions(f)
-        if not pos:          # constant
-            if F(f) != 0:
-                return None  # 0 == nonzero constant; infeasible
-            continue
-        if len(pos) == 1:    # prune this variable's domain
-            i = next(iter(pos))
-            v = variables[i]
-            domains[i] = [c for c in domains[i] if f(**{str(v): c}) == 0]
-        else:
-            reduced_eqs.append((f, pos))
-    for g in ineqs:
-        pos = positions(g)
-        if not pos:
-            if F(g) == 0:
-                return None
-            continue
-        if len(pos) == 1:
-            i = next(iter(pos))
-            v = variables[i]
-            domains[i] = [c for c in domains[i] if g(**{str(v): c}) != 0]
-        else:
-            reduced_ineqs.append((g, pos))
-    if any(len(d) == 0 for d in domains):
-        return None
-
-    # bucket remaining constraints by the last variable (in chosen order)
-    eqs_by_level = [[] for _ in range(n)]
-    ineqs_by_level = [[] for _ in range(n)]
-    for f, pos in reduced_eqs:
-        eqs_by_level[max(pos)].append(f)
-    for g, pos in reduced_ineqs:
-        ineqs_by_level[max(pos)].append(g)
-
-    assignment = [None] * n
-
-    def backtrack(k):
-        if k == n:
-            return True
-        for val in domains[k]:
-            assignment[k] = val
-            subs = {str(variables[i]): assignment[i] for i in range(k + 1)}
-            if all(f(**subs) == 0 for f in eqs_by_level[k]) and \
-               all(g(**subs) != 0 for g in ineqs_by_level[k]):
-                if backtrack(k + 1):
-                    return True
-        assignment[k] = None
-        return False
-
-    if backtrack(0):
-        return dict(zip(variables, assignment))
-    return None
 
 
 def element_to_int(a):
@@ -164,15 +90,6 @@ def save_results(results, path):
     os.replace(tmp_path, path)
 
 
-def _reduce_to_GF_q(f, q):
-    """
-    Reduce a ring element `f` (over `ZZ` or `ZZ[vars]`) to `GF(q)`.
-    """
-    if hasattr(f, "change_ring"):
-        return f.change_ring(GF(q))
-    return GF(q)(f)
-
-
 def _process_one(colex, M, q_list, rs_cached):
     """
     Find the first GF(q) solution for a single matroid.
@@ -190,22 +107,13 @@ def _process_one(colex, M, q_list, rs_cached):
     sol = None
 
     for q in q_list:
-        R = RS.ambient_ring
-        if _is_poly_ring(R):
-            eqs = [f for f in RS.defining_ideal.gens() if f != 0]
-            ineqs = [g for g in RS.inequations]
-            sol = has_solution(R, eqs, ineqs, q)
-            if sol is None:
-                continue
-            A = RS.realization_matrix.subs(sol).change_ring(GF(q))
-        else:
-            if any([GF(q)(g) != 0 for g in RS.defining_ideal.gens()]) or \
-               any([GF(q)(g) == 0 for g in RS.inequations]):
-                continue
-            A = RS.realization_matrix.change_ring(GF(q))
+        sol = RS.q_solution(q)
+        if sol is None:
+            continue
+        A = RS.realization_matrix.subs(sol).change_ring(GF(q))
 
-        assert A.base_ring() is GF(q), f'{colex}: matrix base ring not GF({q})'
         M_A = Matroid(A)
+        assert A.base_ring() is GF(q), f'{colex}: matrix base ring not GF({q})'
         assert M.is_isomorphic(M_A), f'{colex}: isomorphism check failed; \
             GF({q}), {RS.defining_ideal}, {RS.inequations}, {sol}'
 

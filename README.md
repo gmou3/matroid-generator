@@ -54,6 +54,13 @@ For a timed and enumerated output, run, e.g.,
 time ./build/IC 4 8 | cat -n
 ```
 
+To generate the canonical single-element extensions of one matroid, run
+```bash
+./build/IC-extend <r> <n> <colex>
+```
+Note that the resulting matroids have the same rank, except for the last one
+which is the extension by a coloop.
+
 ## Notes
 
 Each matroid/line of the output is encoded as follows:
