@@ -45,6 +45,11 @@ def parse_input(s, total):
     else:
         return stars, '*'
 
+# The table has n! * C(n, r) entries, so it grows out of memory fast: (4, 9) is
+# 45MB but (5, 10) would already be ~900MB. Past this many elements, fall back
+# to relabeling each seed's subsets one permutation at a time.
+MAX_TABLE_N = 9
+
 def build_perm_table(r, n):
     """Return T with T[i, p] = colex index of the image of the i-th r-subset
     under the p-th permutation of the ground set, in itertools order.
@@ -86,7 +91,7 @@ def build_perm_table(r, n):
 TABLE = None
 ROWS = None
 
-def all_permutations(input_str, r, n):
+def orbit_from_table(input_str, r, n):
     """Sorted, deduplicated orbit of `input_str` under relabelings of the
     ground set, as a numpy array of fixed-width byte strings."""
     total = comb(n, r)
@@ -103,28 +108,55 @@ def all_permutations(input_str, r, n):
         grid[ROWS, TABLE[A]] = active_byte
 
     # 'S<total>' compares with memcmp, matching bytes ordering and LC_ALL=C.
-    return np.unique(grid.view(f'S{total}').ravel())
+    orbit = np.unique(grid.view(f'S{total}').ravel())
 
-def encode_orbit(orbit, total):
-    """Serialize an orbit to newline-terminated bytes for build/sz."""
     m = orbit.shape[0]
     buf = np.empty((m, total + 1), dtype=np.uint8)
     buf[:, :total] = orbit.view(np.uint8).reshape(m, total)
     buf[:, total] = ord('\n')
-    return buf.tobytes()
+    return m, buf.tobytes()
+
+def apply_permutation(active_indices, pi, all_subsets, subset_to_idx):
+    result = set()
+    for idx in active_indices:
+        subset = all_subsets[idx]
+        permuted = frozenset(pi[x] for x in subset)
+        result.add(subset_to_idx[permuted])
+    return frozenset(result)
+
+def to_string(active_indices, active_char, total):
+    inactive_char = '*' if active_char == '0' else '0'
+    return ''.join(active_char if i in active_indices else inactive_char for i in range(total))
+
+def orbit_by_relabeling(input_str, r, n):
+    """Same orbit as `orbit_from_table`, built one permutation at a time so it
+    needs no precomputed table."""
+    all_subsets, subset_to_idx, total = build_tables(r, n)
+    active, active_char = parse_input(input_str, total)
+
+    seen = set()
+    for pi in permutations(range(n)):
+        image = apply_permutation(active, pi, all_subsets, subset_to_idx)
+        if image not in seen:
+            seen.add(image)
+    orbit = sorted(to_string(image, active_char, total) for image in seen)
+    return len(orbit), ("\n".join(orbit) + "\n").encode()
 
 def process_seed(args):
     seed_idx, input_str, out_dir, r, n = args
-    orbit = all_permutations(input_str, r, n)
+    if TABLE is not None:
+        count, payload = orbit_from_table(input_str, r, n)
+    else:
+        count, payload = orbit_by_relabeling(input_str, r, n)
     sz_file = os.path.join(out_dir, f"r{r:02d}n{n:02d}-{seed_idx:06d}.sz")
 
     subprocess.run(
         ["build/sz", "/dev/stdin", "-o", sz_file],
-        input=encode_orbit(orbit, comb(n, r)),
+        input=payload,
         check=True,
     )
 
-    return seed_idx, len(orbit)
+    return seed_idx, count
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -150,8 +182,9 @@ if __name__ == "__main__":
             tasks.append((seed_idx, input_str, args.out_dir, args.r, args.n))
             seed_idx += 1
 
-    TABLE = build_perm_table(args.r, args.n)
-    ROWS = np.arange(TABLE.shape[1], dtype=np.intp)
+    if args.n <= MAX_TABLE_N:
+        TABLE = build_perm_table(args.r, args.n)
+        ROWS = np.arange(TABLE.shape[1], dtype=np.intp)
 
     done = 0
     with ProcessPoolExecutor(max_workers=args.threads,
