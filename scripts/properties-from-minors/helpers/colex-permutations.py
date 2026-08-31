@@ -48,7 +48,7 @@ def parse_input(s, total):
 # The table has n! * C(n, r) entries, so it grows out of memory fast: (4, 9) is
 # 45MB but (5, 10) would already be ~900MB. Past this many elements, fall back
 # to relabeling each seed's subsets one permutation at a time.
-MAX_TABLE_N = 9
+MAX_TABLE_N = 10
 
 def build_perm_table(r, n):
     """Return T with T[i, p] = colex index of the image of the i-th r-subset
