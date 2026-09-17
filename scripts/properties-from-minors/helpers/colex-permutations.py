@@ -16,9 +16,9 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 
-def open_sz(path):
+def open_szxz(path):
     proc = subprocess.Popen(
-        ["scripts/szcat.sh", path],
+        ["scripts/szxzcat.sh", path],
         stdout=subprocess.PIPE,
         text=True,
     )
@@ -155,6 +155,10 @@ def process_seed(args):
         input=payload,
         check=True,
     )
+    subprocess.run(
+        ["xz", "-9e", sz_file],
+        check=True,
+    )
 
     return seed_idx, count
 
@@ -173,7 +177,7 @@ if __name__ == "__main__":
     os.makedirs(args.out_dir, exist_ok=True)
 
     tasks = []
-    with open_sz(args.input) as f:
+    with open_szxz(args.input) as f:
         seed_idx = 0
         for line in f:
             input_str = line.strip()

@@ -13,10 +13,10 @@ INDEX_OUT="$3"
 files=()
 while IFS= read -r line; do
   files+=("$line")
-done < <(find "$INPUT_DIR" -maxdepth 1 -name '*.sz' | sort)
+done < <(find "$INPUT_DIR" -maxdepth 1 -name '*.sz.xz' | sort)
 
 if [[ ${#files[@]} -eq 0 ]]; then
-    echo "Error: no .sz files found in '$INPUT_DIR'" >&2
+    echo "Error: no .sz.xz files found in '$INPUT_DIR'" >&2
     exit 1
 fi
 
@@ -38,15 +38,16 @@ for i in "${!files[@]}"; do
     mkfifo "$fifo"
     fifos+=("$fifo")
     # Feed each FIFO in the background
-    scripts/szcat.sh "${files[$i]}" \
+    scripts/szxzcat.sh "${files[$i]}" \
         | awk -v idx="$i" '{print idx, $0}' \
         > "$fifo" &
 done
 
-sort -m -k2 "${fifos[@]}" \
+sort -m -k2 -T "$INPUT_DIR" -S 16G --compress-program="zstd" \
+    --batch-size=256 "${fifos[@]}" \
 | awk '{
-    print $2 | "build/sz /dev/stdin -o '"$MERGED_OUT"'"
-    print $1 > "'"$INDEX_OUT"'"
+    print $2 | "build/sz -s | xz -9e > '"$MERGED_OUT"'"
+    print $1 | "xz -9e > '"$INDEX_OUT"'"
 }'
 
 wait

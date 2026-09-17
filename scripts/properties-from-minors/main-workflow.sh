@@ -50,22 +50,23 @@ RR1=$(fmt "$R1"); NN1=$(fmt "$N1")
 run_ic() {
     local r=$1 n=$2
     local rr; rr=$(fmt "$r"); local nn; nn=$(fmt "$n")
-    local out="output/r${rr}n${nn}.sz"
+    local out="output/r${rr}n${nn}.sz.xz"
     if [[ -f "$out" ]]; then
         echo "- Skipping IC ($r, $n): $out already exists"
     else
         echo "- Running IC ($r, $n)"
         "build/IC" "$r" "$n" "$THREADS" --compressed-file
+        xz -T${THREADS} -9e "${out%.xz}"
     fi
 }
 
-RN_MATROIDS="output/r${RR}n${NN}.sz"
-RN_MATROIDS_SUFFIX="output/r${RR}n${NN}-suffix-sorted.sz"
-RN_MATROIDS_SUFFIX_PATTERN="output/r${RR}n${NN}-suffix-sorted*.sz"
-R1N1_MATROIDS="output/r${RR1}n${NN1}.sz"
+RN_MATROIDS="output/r${RR}n${NN}.sz.xz"
+RN_MATROIDS_SUFFIX="output/r${RR}n${NN}-suffix-sorted.sz.xz"
+RN_MATROIDS_SUFFIX_PATTERN="output/r${RR}n${NN}-suffix-sorted*.sz.xz"
+R1N1_MATROIDS="output/r${RR1}n${NN1}.sz.xz"
 R1N1_MATROIDS_ALL_DIR="output/r${RR1}n${NN1}-all"
-R1N1_MATROIDS_ALL="output/r${RR1}n${NN1}-all.sz"
-R1N1_CANONICAL_IDX="output/r${RR1}n${NN1}-all-to-canonical_idx.txt"
+R1N1_MATROIDS_ALL="output/r${RR1}n${NN1}-all.sz.xz"
+R1N1_CANONICAL_IDX="output/r${RR1}n${NN1}-all-to-canonical_idx.txt.xz"
 
 choose() {
     local n=$1 r=$2
@@ -90,11 +91,11 @@ if compgen -G "$RN_MATROIDS_SUFFIX_PATTERN" > /dev/null 2>&1; then
 else
     run_ic "$R" "$N"
     echo "- Sorting ($R, $N) canonical matroids by suffix"
-    "scripts/szcat.sh" "$RN_MATROIDS" \
+    "scripts/szxzcat.sh" "$RN_MATROIDS" \
         | sort -k1.${SUFFIX_START},1.${TOTAL} -k1.1,1.${PREFIX_LEN} \
             -T "output" -S 16G --parallel=${THREADS} \
-            --compress-program="scripts/sz-s.sh" \
-        | "build/sz" /dev/stdin -o "$RN_MATROIDS_SUFFIX"
+            --compress-program="scripts/sz-xz.sh" \
+        | "build/sz" -s | xz -T${THREADS} -9e > "$RN_MATROIDS_SUFFIX"
 fi
 
 run_ic "$R1" "$N1"

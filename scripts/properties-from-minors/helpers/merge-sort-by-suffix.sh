@@ -33,10 +33,10 @@ echo "String length:  C($N,$R)     = $TOTAL" >&2
 echo "Suffix length:  C($((N-1)),$((R-1))) = $SUFFIX_LEN" >&2
 echo "Prefix length:  C($((N-1)),$R) = $PREFIX_LEN" >&2
 
-mapfile -t files < <(find "$INPUT_DIR" -maxdepth 1 -name '*.xz' | sort)
+mapfile -t files < <(find "$INPUT_DIR" -maxdepth 1 -name '*.sz.xz' | sort)
 
 if [[ ${#files[@]} -eq 0 ]]; then
-    echo "Error: no .xz files found in '$INPUT_DIR'" >&2
+    echo "Error: no .sz.xz files found in '$INPUT_DIR'" >&2
     exit 1
 fi
 
@@ -50,18 +50,19 @@ for i in "${!files[@]}"; do
     fifo="$TMPDIR/input_$i"
     mkfifo "$fifo"
     fifos+=("$fifo")
-    scripts/szcat.sh "${files[$i]}" > "$fifo" &
+    scripts/szxzcat.sh "${files[$i]}" > "$fifo" &
 done
 
 SUFFIX_START=$((TOTAL - SUFFIX_LEN + 1))
 
-MERGED_OUT="output/$(printf 'r%02dn%02d-suffix-sorted.sz' "$R" "$N")"
+MERGED_OUT="output/$(printf 'r%02dn%02d-suffix-sorted.sz.xz' "$R" "$N")"
 
-sort -m \
+sort -m -T "$INPUT_DIR" -S 16G --compress-program="scripts/sz-xz.sh" \
+    --batch-size=256 \
     -k1.${SUFFIX_START},1.${TOTAL} \
     -k1.1,1.${PREFIX_LEN} \
     "${fifos[@]}" \
-| build/sz /dev/stdin -o "$MERGED_OUT"
+| build/sz | xz -T6 -9e > "$MERGED_OUT"
 
 wait
 echo "Done. Written: $MERGED_OUT" >&2

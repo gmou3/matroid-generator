@@ -9,7 +9,7 @@ import time
 from datetime import timedelta
 from math import comb
 from sage.interfaces.singular import singular
-from sage.matroids.constructor import Matroid
+from sage.matroids.basis_matroid import BasisMatroid
 from sage.matroids.database_matroids import K33dual, K5dual
 
 mp.set_start_method("fork", force=True)
@@ -55,14 +55,23 @@ def build_properties(M, include_realizable=False, characteristic=None):
 
 def ensure_matroid(M, r, n, colex):
     if M is None:
-        M = Matroid(rank=r, groundset=range(n), colex=colex)
+        M = BasisMatroid(rank=r, groundset=range(n), colex=colex)
     return M
 
-
-def open_sz(path):
+def open_xz(path):
     proc = subprocess.Popen(
-        ["scripts/szcat.sh", path],
+        ["xz", "-d", "-c", path],
         stdout=subprocess.PIPE,
+        text=True,
+    )
+    return proc.stdout
+
+
+def open_szxz(path):
+    proc = subprocess.Popen(
+        ["scripts/szxzcat.sh", path],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
         text=True,
     )
     return proc.stdout
@@ -189,7 +198,7 @@ def process_part(args):
 
     start = time.time()
 
-    part_name = os.path.splitext(os.path.basename(file_rn))[0]
+    part_name = re.sub(r'\.sz\.xz$', '', os.path.basename(file_rn))
     match = re.search(r'part(\d+)', part_name)
     part_num = int(match.group(1)) if match else 0
 
@@ -219,9 +228,9 @@ def process_part(args):
         cnt[realizability_key] = 0
     properties_by_matroid = {}
 
-    with open_sz(file_rn) as rn_stream, \
-            open_sz(file_all) as all_stream, \
-            open(file_idx) as idx_stream:
+    with open_szxz(file_rn) as rn_stream, \
+         open_szxz(file_all) as all_stream, \
+         open_xz(file_idx) as idx_stream:
 
         all_line_no = 0
         current_all_str = all_stream.readline()[:-1]
@@ -433,9 +442,9 @@ def process_part(args):
 
 
 print("Reading canonical minors and computing properties...")
-FILE_DELETION = f"output/{fmt(R, N - 1)}.sz"
+FILE_DELETION = f"output/{fmt(R, N - 1)}.sz.xz"
 JSON_DELETION = f"output/{fmt(R, N - 1)}-properties.json"
-FILE_CONTRACTION = f"output/{fmt(R - 1, N - 1)}.sz"
+FILE_CONTRACTION = f"output/{fmt(R - 1, N - 1)}.sz.xz"
 JSON_CONTRACTION = f"output/{fmt(R - 1, N - 1)}-properties.json"
 
 # Deletion properties
@@ -445,7 +454,7 @@ if os.path.exists(JSON_DELETION):
         properties_deletion = json.load(f)
 else:
     print(f"  Computing deletion properties with Sage from {FILE_DELETION}...")
-    with open_sz(FILE_DELETION) as f:
+    with open_szxz(FILE_DELETION) as f:
         for line in f:
             line = line.strip()
             M = ensure_matroid(None, R, N - 1, line)
@@ -464,7 +473,7 @@ if os.path.exists(JSON_CONTRACTION):
 else:
     print(
         f"  Computing contraction properties with Sage from {FILE_CONTRACTION}...")
-    with open_sz(FILE_CONTRACTION) as f:
+    with open_szxz(FILE_CONTRACTION) as f:
         for i, line in enumerate(f):
             line = line.strip()
             M = ensure_matroid(None, R - 1, N - 1, line)
@@ -473,11 +482,11 @@ else:
                 characteristic=characteristic
             )
 
-FILE_RN_SUFFIX_SORTED = f"output/{fmt(R, N)}-suffix-sorted.sz"
-FILE_CONTRACTION_ALL = f"output/{fmt(R - 1, N - 1)}-all.sz"
-FILE_CONTRACTION_ALL_TO_IDX = f"output/{fmt(R - 1, N - 1)}-all-to-canonical_idx.txt"
+FILE_RN_SUFFIX_SORTED = f"output/{fmt(R, N)}-suffix-sorted.sz.xz"
+FILE_CONTRACTION_ALL = f"output/{fmt(R - 1, N - 1)}-all.sz.xz"
+FILE_CONTRACTION_ALL_TO_IDX = f"output/{fmt(R - 1, N - 1)}-all-to-canonical_idx.txt.xz"
 
-part_files = sorted(glob.glob(f"output/{fmt(R, N)}-suffix-sorted-*.sz"))
+part_files = sorted(glob.glob(f"output/{fmt(R, N)}-suffix-sorted-*.sz.xz"))
 
 if part_files and threads > 1:
     print(
@@ -485,7 +494,7 @@ if part_files and threads > 1:
 
     # Find the last completed file's index, and reorder to start right after it
     def is_done(pf):
-        part_name = os.path.splitext(os.path.basename(pf))[0]
+        part_name = re.sub(r'\.sz\.xz$', '', os.path.basename(pf))
         return os.path.exists(f"output/{part_name}-properties-counts.json")
 
     done_flags = [is_done(pf) for pf in part_files]
@@ -503,7 +512,7 @@ if part_files and threads > 1:
     # Skip parts that already have completed output
     pending_part_files = []
     for pf in order:
-        part_name = os.path.splitext(os.path.basename(pf))[0]
+        part_name = re.sub(r'\.sz\.xz$', '', os.path.basename(pf))
         counts_file = f"output/{part_name}-properties-counts.json"
         if not os.path.exists(counts_file):
             pending_part_files.append(pf)
@@ -533,7 +542,7 @@ if part_files and threads > 1:
     cnt = {}
     properties_by_matroid = {}
     for pf in part_files:
-        part_name = os.path.splitext(os.path.basename(pf))[0]
+        part_name = re.sub(r'\.sz\.xz$', '', os.path.basename(pf))
         counts_file = f"output/{part_name}-properties-counts.json"
         if not os.path.exists(counts_file):
             print(
