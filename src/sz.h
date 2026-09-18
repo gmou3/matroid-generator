@@ -1,80 +1,83 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <string>
 #include <vector>
 
 using namespace std;
 
-static inline int bits_for(size_t max_val) {
-    if (max_val == 0) return 1;
-    int b = 0;
-    while (max_val > 0) {
-        b++;
-        max_val >>= 1;
-    }
-    return b;
+static inline int width_for(size_t line_len) {
+    if (line_len <= 0xFF) return 1;
+    if (line_len <= 0xFFFF) return 2;
+    return 4;
 }
 
-struct BitWriter {
+struct ByteWriter {
     ofstream* f;
-    uint8_t buf;
-    int bit_pos;
+    vector<char> buf;
+    size_t pos;
 };
 
-static inline void bw_init(BitWriter* bw, ofstream* f) {
+static const size_t BYTE_IO_BUF_SIZE = 1 << 16;  // 64 KiB
+
+static inline void bw_init(ByteWriter* bw, ofstream* f) {
     bw->f = f;
-    bw->buf = 0;
-    bw->bit_pos = 7;
+    bw->buf.resize(BYTE_IO_BUF_SIZE);
+    bw->pos = 0;
 }
 
-static inline void bw_write_bit(BitWriter* bw, int bit) {
-    if (bit) bw->buf |= (1u << bw->bit_pos);
-    if (bw->bit_pos-- == 0) {
-        bw->f->write(reinterpret_cast<char*>(&bw->buf), 1);
-        bw->buf = 0;
-        bw->bit_pos = 7;
-    }
+static inline void bw_flush(ByteWriter* bw) {
+    if (bw->pos) bw->f->write(bw->buf.data(), static_cast<streamsize>(bw->pos));
+    bw->pos = 0;
 }
 
-static inline void bw_write_bits(BitWriter* bw, uint32_t val, int n) {
-    for (int i = n - 1; i >= 0; i--) bw_write_bit(bw, (val >> i) & 1);
+static inline void bw_write(ByteWriter* bw, uint32_t val, int width) {
+    if (bw->pos + static_cast<size_t>(width) > bw->buf.size()) bw_flush(bw);
+    memcpy(bw->buf.data() + bw->pos, &val, static_cast<size_t>(width));
+    bw->pos += static_cast<size_t>(width);
 }
 
-static inline void bw_flush(BitWriter* bw) {
-    if (bw->bit_pos < 7) bw->f->write(reinterpret_cast<char*>(&bw->buf), 1);
-}
-
-struct BitReader {
+struct ByteReader {
     ifstream* f;
-    uint8_t buf;
-    int bit_pos;
+    vector<char> buf;
+    size_t pos;
+    size_t len;
 };
 
-static inline void br_init(BitReader* br, ifstream* f) {
+static inline void br_init(ByteReader* br, ifstream* f) {
     br->f = f;
-    br->bit_pos = -1;
+    br->buf.resize(BYTE_IO_BUF_SIZE);
+    br->pos = 0;
+    br->len = 0;
 }
 
-static inline int br_read_bit(BitReader* br) {
-    if (br->bit_pos < 0) {
-        int c = br->f->get();
-        if (c == EOF) return -1;
-        br->buf = (uint8_t)c;
-        br->bit_pos = 7;
-    }
-    return (br->buf >> br->bit_pos--) & 1;
+static inline bool br_refill(ByteReader* br) {
+    br->f->read(br->buf.data(), static_cast<streamsize>(br->buf.size()));
+    br->len = static_cast<size_t>(br->f->gcount());
+    br->pos = 0;
+    return br->len > 0;
 }
 
-static inline int br_read_bits(BitReader* br, int n, uint32_t* out) {
-    uint32_t v = 0;
-    for (int i = 0; i < n; i++) {
-        int b = br_read_bit(br);
-        if (b < 0) return -1;
-        v = (v << 1) | b;
+static inline int br_read(ByteReader* br, int width, uint32_t* out) {
+    size_t w = static_cast<size_t>(width);
+    *out = 0;  // width may be < 4 bytes; zero the rest of the value first
+    if (br->pos + w > br->len) {
+        // Slow path: the value straddles a refill boundary (or the buffer
+        // is simply empty/exhausted).
+        size_t have = br->len - br->pos;
+        char tmp[4] = {0, 0, 0, 0};
+        memcpy(tmp, br->buf.data() + br->pos, have);
+        size_t need = w - have;
+        if (!br_refill(br) || br->len < need) return -1;
+        memcpy(tmp + have, br->buf.data(), need);
+        br->pos = need;
+        memcpy(out, tmp, w);
+        return 0;
     }
-    *out = v;
+    memcpy(out, br->buf.data() + br->pos, w);
+    br->pos += w;
     return 0;
 }
 
@@ -82,7 +85,7 @@ static inline int br_read_bits(BitReader* br, int n, uint32_t* out) {
 class SZWriter {
    private:
     ofstream file;
-    BitWriter bw;
+    ByteWriter bw;
     size_t line_len;
     int B;
     uint64_t count;
@@ -121,22 +124,33 @@ class SZWriter {
             first_line = false;
 
             // Calculate block size
-            B = bits_for(line_len);
+            B = width_for(line_len);
 
-            // Initialize bit writer for later lines
+            // Initialize byte writer for later lines
             bw_init(&bw, &file);
             return;
         }
 
-        // Collect differing positions
-        vector<size_t> diffs;
-        diffs.reserve(line_len);
-        for (size_t i = 0; i < line_len; i++)
-            if (data[i] != prev[i]) diffs.push_back(i);
+        // Find differing positions 8 bytes at a time and emit directly.
+        const char* d = data.data();
+        const char* p = prev.data();
+        size_t i = 0;
+        for (; i + 8 <= line_len; i += 8) {
+            uint64_t a, b;
+            memcpy(&a, d + i, 8);
+            memcpy(&b, p + i, 8);
+            uint64_t diff = a ^ b;
+            while (diff) {
+                // lowest differing byte within this word (little-endian)
+                size_t j = (size_t)(__builtin_ctzll(diff) >> 3);
+                bw_write(&bw, (uint32_t)(i + j), B);
+                diff &= ~(0xFFULL << (j << 3));  // clear the whole byte
+            }
+        }
+        for (; i < line_len; i++)
+            if (d[i] != p[i]) bw_write(&bw, (uint32_t)i, B);
 
-        // Encode each flipped position followed by a seperator value
-        for (size_t pos : diffs) bw_write_bits(&bw, (uint32_t)pos, B);
-        bw_write_bits(&bw, (uint32_t)line_len, B);  // sentinel
+        bw_write(&bw, (uint32_t)line_len, B);  // sentinel
 
         prev = data;
         count++;
@@ -161,7 +175,7 @@ class SZWriter {
 class SZReader {
    private:
     ifstream file;
-    BitReader br;
+    ByteReader br;
     size_t line_len;
     int B;
     string prev;  // stored as '0'/'*' chars
@@ -197,7 +211,7 @@ class SZReader {
         remaining = streaming ? UINT64_MAX : cnt;
 
         // Calculate block size
-        B = bits_for(line_len);
+        B = width_for(line_len);
 
         // Read first line verbatim
         prev.resize(line_len);
@@ -205,7 +219,7 @@ class SZReader {
 
         have_first_line = true;
 
-        // Set up bit reader for the remaining data
+        // Set up byte reader for the remaining data
         br_init(&br, &file);
         return true;
     }
@@ -220,16 +234,15 @@ class SZReader {
             return true;
         }
 
-        string cur = prev;
+        line = prev;
         while (true) {
             uint32_t pos;
-            if (br_read_bits(&br, B, &pos) != 0) return false;
-            if (pos == line_len) break;                // sentinel
-            cur[pos] = (cur[pos] == '*') ? '0' : '*';  // flip
+            if (br_read(&br, B, &pos) != 0) return false;
+            if (pos == line_len) break;                  // sentinel
+            line[pos] = (line[pos] == '*') ? '0' : '*';  // flip
         }
 
-        line = cur;
-        prev = cur;
+        prev = line;
         remaining--;
         return true;
     }
