@@ -110,7 +110,7 @@ class SZWriter {
             // Write header: line length and placeholder count
             line_len = data.size();
             uint32_t L32 = static_cast<uint32_t>(line_len);
-            uint64_t cnt = UINT64_MAX;  // sentinel meaning "in progress"
+            uint64_t cnt = streaming ? 0ULL : UINT64_MAX;
             file.write(reinterpret_cast<const char*>(&L32), sizeof(L32));
             file.write(reinterpret_cast<const char*>(&cnt), sizeof(cnt));
 
@@ -168,6 +168,8 @@ class SZReader {
     bool have_first_line;
     size_t cnt;
     size_t remaining = 0;
+    bool streaming = false;  // header count 0
+    bool corrupt = false;    // header count UINT64_MAX
 
    public:
     SZReader() : line_len(0), B(0), have_first_line(false) {}
@@ -187,9 +189,12 @@ class SZReader {
             return false;
 
         line_len = static_cast<size_t>(L32);
+        if (line_len == 0) return false;
+
         cnt = static_cast<size_t>(count);
-        if (line_len == 0 or cnt == 0) return false;
-        remaining = count;
+        streaming = (count == 0);
+        corrupt = (count == UINT64_MAX);
+        remaining = streaming ? UINT64_MAX : cnt;
 
         // Calculate block size
         B = bits_for(line_len);
@@ -240,9 +245,22 @@ class SZReader {
 
     size_t get_expected_count() const { return cnt; }
 
+    bool is_streaming() const { return streaming; }
+
+    bool is_corrupt() const { return corrupt; }
+
+    size_t scan_line_count() {
+        size_t n = 0;
+        string line;
+        while (getline(line)) n++;
+        return n;
+    }
+
     string getinfo() {
-        string noun = (cnt == 1) ? "string" : "strings";
-        return to_string(cnt) + " " + noun + " of length " +
+        uint64_t effective_cnt = cnt;
+        if (streaming) effective_cnt = scan_line_count();
+        string noun = (effective_cnt == 1) ? "string" : "strings";
+        return to_string(effective_cnt) + " " + noun + " of length " +
                to_string(line_len);
     }
 

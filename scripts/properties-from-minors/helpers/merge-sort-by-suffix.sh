@@ -62,7 +62,7 @@ sort -m -T "$INPUT_DIR" -S 16G --compress-program="scripts/sz-xz.sh" \
     -k1.${SUFFIX_START},1.${TOTAL} \
     -k1.1,1.${PREFIX_LEN} \
     "${fifos[@]}" \
-| build/sz | xz -T6 -9e > "$MERGED_OUT"
+| build/sz | xz -T0 -9e > "$MERGED_OUT"
 
 wait
 echo "Done. Written: $MERGED_OUT" >&2

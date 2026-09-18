@@ -46,7 +46,7 @@ done
 sort -m -k2 -T "$INPUT_DIR" -S 16G --compress-program="zstd" \
     --batch-size=256 "${fifos[@]}" \
 | awk '{
-    print $2 | "build/sz -s | xz -9e > '"$MERGED_OUT"'"
+    print $2 | "build/sz | xz -9e > '"$MERGED_OUT"'"
     print $1 | "xz -9e > '"$INDEX_OUT"'"
 }'
 

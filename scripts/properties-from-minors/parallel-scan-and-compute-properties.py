@@ -71,7 +71,6 @@ def open_szxz(path):
     proc = subprocess.Popen(
         ["scripts/szxzcat.sh", path],
         stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
         text=True,
     )
     return proc.stdout

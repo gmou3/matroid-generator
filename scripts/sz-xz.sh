@@ -2,10 +2,10 @@
 # Wrapper for sz+xz to be used in `sort --compress-program=`
 set -eo pipefail
 
-DIR="$(dirname "$(readlink -f "$0")")/../build"
+SZ="$(dirname "$(readlink -f "$0")")/../build/sz"
 
 if [ "$1" = "-d" ]; then
-    xz -d | "$DIR/sz" -d
+    xz -d | "$SZ" -d
 else
-    "$DIR/sz" -s | xz -9e
+    "$SZ" | xz -9e
 fi

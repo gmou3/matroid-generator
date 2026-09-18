@@ -95,7 +95,7 @@ else
         | sort -k1.${SUFFIX_START},1.${TOTAL} -k1.1,1.${PREFIX_LEN} \
             -T "output" -S 16G --parallel=${THREADS} \
             --compress-program="scripts/sz-xz.sh" \
-        | "build/sz" -s | xz -T${THREADS} -9e > "$RN_MATROIDS_SUFFIX"
+        | "build/sz" | xz -T${THREADS} -9e > "$RN_MATROIDS_SUFFIX"
 fi
 
 run_ic "$R1" "$N1"
