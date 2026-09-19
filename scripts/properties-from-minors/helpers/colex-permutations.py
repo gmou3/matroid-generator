@@ -156,7 +156,7 @@ def process_seed(args):
         check=True,
     )
     subprocess.run(
-        ["xz", "-9e", sz_file],
+        ["scripts/zstd-level.sh", "-q", "--rm", sz_file],
         check=True,
     )
 

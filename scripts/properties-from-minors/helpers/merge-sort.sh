@@ -13,10 +13,10 @@ INDEX_OUT="$3"
 files=()
 while IFS= read -r line; do
   files+=("$line")
-done < <(find "$INPUT_DIR" -maxdepth 1 -name '*.sz.xz' | sort)
+done < <(find "$INPUT_DIR" -maxdepth 1 -name '*.sz.zst' | sort)
 
 if [[ ${#files[@]} -eq 0 ]]; then
-    echo "Error: no .sz.xz files found in '$INPUT_DIR'" >&2
+    echo "Error: no .sz.zst files found in '$INPUT_DIR'" >&2
     exit 1
 fi
 
@@ -38,16 +38,16 @@ for i in "${!files[@]}"; do
     mkfifo "$fifo"
     fifos+=("$fifo")
     # Feed each FIFO in the background
-    scripts/szxzcat.sh "${files[$i]}" \
+    scripts/szzstdcat.sh "${files[$i]}" \
         | awk -v idx="$i" '{print idx, $0}' \
         > "$fifo" &
 done
 
-sort -m -k2 -T "$INPUT_DIR" -S 16G --compress-program="zstd" \
-    --batch-size=256 "${fifos[@]}" \
+sort -m -k2 -T "$INPUT_DIR" -S 2G --compress-program="scripts/zstd-level.sh" \
+    --batch-size=64 "${fifos[@]}" \
 | awk '{
-    print $2 | "build/sz | xz -9e > '"$MERGED_OUT"'"
-    print $1 | "xz -9e > '"$INDEX_OUT"'"
+    print $2 | "build/sz | scripts/zstd-level.sh > '"$MERGED_OUT"'"
+    print $1 | "scripts/zstd-level.sh > '"$INDEX_OUT"'"
 }'
 
 wait

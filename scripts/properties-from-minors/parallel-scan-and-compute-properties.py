@@ -58,18 +58,15 @@ def ensure_matroid(M, r, n, colex):
         M = BasisMatroid(rank=r, groundset=range(n), colex=colex)
     return M
 
-def open_xz(path):
-    proc = subprocess.Popen(
-        ["xz", "-d", "-c", path],
-        stdout=subprocess.PIPE,
-        text=True,
-    )
-    return proc.stdout
 
-
-def open_szxz(path):
+def open_compressed(path, kind):
+    cmd = {
+        "szxz": ["scripts/szxzcat.sh", path],
+        "zst": ["zstdcat", path],
+        "szzst": ["scripts/szzstdcat.sh", path],
+    }[kind]
     proc = subprocess.Popen(
-        ["scripts/szxzcat.sh", path],
+        cmd,
         stdout=subprocess.PIPE,
         text=True,
     )
@@ -197,7 +194,7 @@ def process_part(args):
 
     start = time.time()
 
-    part_name = re.sub(r'\.sz\.xz$', '', os.path.basename(file_rn))
+    part_name = re.sub(r'\.sz\.zst$', '', os.path.basename(file_rn))
     match = re.search(r'part(\d+)', part_name)
     part_num = int(match.group(1)) if match else 0
 
@@ -227,9 +224,9 @@ def process_part(args):
         cnt[realizability_key] = 0
     properties_by_matroid = {}
 
-    with open_szxz(file_rn) as rn_stream, \
-         open_szxz(file_all) as all_stream, \
-         open_xz(file_idx) as idx_stream:
+    with open_compressed(file_rn, "szzst") as rn_stream, \
+         open_compressed(file_all, "szzst") as all_stream, \
+         open_compressed(file_idx, "zst") as idx_stream:
 
         all_line_no = 0
         current_all_str = all_stream.readline()[:-1]
@@ -453,7 +450,7 @@ if os.path.exists(JSON_DELETION):
         properties_deletion = json.load(f)
 else:
     print(f"  Computing deletion properties with Sage from {FILE_DELETION}...")
-    with open_szxz(FILE_DELETION) as f:
+    with open_compressed(FILE_DELETION, "szxz") as f:
         for line in f:
             line = line.strip()
             M = ensure_matroid(None, R, N - 1, line)
@@ -472,7 +469,7 @@ if os.path.exists(JSON_CONTRACTION):
 else:
     print(
         f"  Computing contraction properties with Sage from {FILE_CONTRACTION}...")
-    with open_szxz(FILE_CONTRACTION) as f:
+    with open_compressed(FILE_CONTRACTION, "szxz") as f:
         for i, line in enumerate(f):
             line = line.strip()
             M = ensure_matroid(None, R - 1, N - 1, line)
@@ -481,11 +478,11 @@ else:
                 characteristic=characteristic
             )
 
-FILE_RN_SUFFIX_SORTED = f"output/{fmt(R, N)}-suffix-sorted.sz.xz"
-FILE_CONTRACTION_ALL = f"output/{fmt(R - 1, N - 1)}-all.sz.xz"
-FILE_CONTRACTION_ALL_TO_IDX = f"output/{fmt(R - 1, N - 1)}-all-to-canonical_idx.txt.xz"
+FILE_RN_SUFFIX_SORTED = f"output/{fmt(R, N)}-suffix-sorted.sz.zst"
+FILE_CONTRACTION_ALL = f"output/{fmt(R - 1, N - 1)}-all.sz.zst"
+FILE_CONTRACTION_ALL_TO_IDX = f"output/{fmt(R - 1, N - 1)}-all-to-canonical_idx.txt.zst"
 
-part_files = sorted(glob.glob(f"output/{fmt(R, N)}-suffix-sorted-*.sz.xz"))
+part_files = sorted(glob.glob(f"output/{fmt(R, N)}-suffix-sorted-*.sz.zst"))
 
 if part_files and threads > 1:
     print(
@@ -493,7 +490,7 @@ if part_files and threads > 1:
 
     # Find the last completed file's index, and reorder to start right after it
     def is_done(pf):
-        part_name = re.sub(r'\.sz\.xz$', '', os.path.basename(pf))
+        part_name = re.sub(r'\.sz\.zst$', '', os.path.basename(pf))
         return os.path.exists(f"output/{part_name}-properties-counts.json")
 
     done_flags = [is_done(pf) for pf in part_files]
@@ -511,7 +508,7 @@ if part_files and threads > 1:
     # Skip parts that already have completed output
     pending_part_files = []
     for pf in order:
-        part_name = re.sub(r'\.sz\.xz$', '', os.path.basename(pf))
+        part_name = re.sub(r'\.sz\.zst$', '', os.path.basename(pf))
         counts_file = f"output/{part_name}-properties-counts.json"
         if not os.path.exists(counts_file):
             pending_part_files.append(pf)
@@ -541,7 +538,7 @@ if part_files and threads > 1:
     cnt = {}
     properties_by_matroid = {}
     for pf in part_files:
-        part_name = re.sub(r'\.sz\.xz$', '', os.path.basename(pf))
+        part_name = re.sub(r'\.sz\.zst$', '', os.path.basename(pf))
         counts_file = f"output/{part_name}-properties-counts.json"
         if not os.path.exists(counts_file):
             print(
