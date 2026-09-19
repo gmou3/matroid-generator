@@ -57,12 +57,12 @@ SUFFIX_START=$((TOTAL - SUFFIX_LEN + 1))
 
 MERGED_OUT="output/$(printf 'r%02dn%02d-suffix-sorted.sz.zst' "$R" "$N")"
 
-sort -m -T "$INPUT_DIR" -S 2G --compress-program="scripts/sz-zstd.sh" \
+sort -m -T "$INPUT_DIR" -S 50% --compress-program="scripts/sz-zstd.sh" \
     --batch-size=64 \
     -k1.${SUFFIX_START},1.${TOTAL} \
     -k1.1,1.${PREFIX_LEN} \
     "${fifos[@]}" \
-| build/sz | scripts/zstd-level.sh > "$MERGED_OUT"
+| build/sz | scripts/zstd-level.sh -T0 > "$MERGED_OUT"
 
 wait
 echo "Done. Written: $MERGED_OUT" >&2

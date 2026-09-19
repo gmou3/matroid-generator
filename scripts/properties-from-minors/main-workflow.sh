@@ -91,11 +91,11 @@ if compgen -G "$RN_MATROIDS_SUFFIX_PATTERN" > /dev/null 2>&1; then
 else
     run_ic "$R" "$N"
     echo "- Sorting ($R, $N) canonical matroids by suffix"
-    "scripts/szzstdcat.sh" "$RN_MATROIDS" \
+    "scripts/szxzcat.sh" "$RN_MATROIDS" \
         | sort -k1.${SUFFIX_START},1.${TOTAL} -k1.1,1.${PREFIX_LEN} \
-            -T "output" -S 2G --parallel=${THREADS} \
+            -T "output" -S 50% --parallel=${THREADS} \
             --compress-program="scripts/sz-zstd.sh" \
-        | "build/sz" | scripts/zstd-level.sh > "$RN_MATROIDS_SUFFIX"
+        | "build/sz" | "scripts/zstd-level.sh" -T0 > "$RN_MATROIDS_SUFFIX"
 fi
 
 run_ic "$R1" "$N1"

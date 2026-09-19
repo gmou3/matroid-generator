@@ -43,12 +43,12 @@ for i in "${!files[@]}"; do
         > "$fifo" &
 done
 
-sort -m -k2 -T "$INPUT_DIR" -S 2G --compress-program="scripts/zstd-level.sh" \
+sort -m -k2 -T "$INPUT_DIR" -S 50% --compress-program="scripts/zstd-level.sh" \
     --batch-size=64 "${fifos[@]}" \
-| awk '{
-    print $2 | "build/sz | scripts/zstd-level.sh > '"$MERGED_OUT"'"
-    print $1 | "scripts/zstd-level.sh > '"$INDEX_OUT"'"
-}'
+| tee \
+    >(cut -d' ' -f2- | build/sz | scripts/zstd-level.sh -T0 > "$MERGED_OUT") \
+    >(cut -d' ' -f1  | scripts/zstd-level.sh -T0 > "$INDEX_OUT") \
+  > /dev/null
 
 wait
 echo "Done. Written: $MERGED_OUT, $INDEX_OUT" >&2
