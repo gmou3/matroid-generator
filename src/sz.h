@@ -264,8 +264,14 @@ class SZReader {
 
     size_t scan_line_count() {
         size_t n = 0;
-        string line;
-        while (getline(line)) n++;
+        if (have_first_line) {
+            n = 1;
+            have_first_line = false;
+        }
+        uint32_t pos;
+        while (br_read(&br, B, &pos) == 0) {
+            if (pos == line_len) n++;
+        }
         return n;
     }
 
